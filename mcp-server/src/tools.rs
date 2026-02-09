@@ -43,6 +43,11 @@ pub async fn call_tool(bridge: &BridgeClient, name: &str, args: Value) -> Result
             let path = args.get("path").and_then(|v| v.as_str());
             screenshot(bridge, path).await
         }
+        "resize" => {
+            let width = get_u32_arg(&args, "width")?;
+            let height = get_u32_arg(&args, "height")?;
+            resize(bridge, width, height).await
+        }
         _ => Err(anyhow!("Unknown tool: {}", name)),
     }
 }
@@ -51,6 +56,13 @@ fn get_string_arg(args: &Value, key: &str) -> Result<String> {
     args.get(key)
         .and_then(|v| v.as_str())
         .map(String::from)
+        .ok_or_else(|| anyhow!("Missing '{}' argument", key))
+}
+
+fn get_u32_arg(args: &Value, key: &str) -> Result<u32> {
+    args.get(key)
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32)
         .ok_or_else(|| anyhow!("Missing '{}' argument", key))
 }
 
@@ -66,7 +78,11 @@ async fn status(bridge: &BridgeClient) -> Result<String> {
 
 async fn get_dom(bridge: &BridgeClient) -> Result<String> {
     let resp = bridge.dom().await?;
-    extract_result(resp)
+    let json_str = extract_result(resp)?;
+    // Parse and re-serialize to get clean formatting (not escaped)
+    let parsed: Value = serde_json::from_str(&json_str)
+        .map_err(|e| anyhow!("Invalid DOM JSON: {}", e))?;
+    Ok(serde_json::to_string_pretty(&parsed)?)
 }
 
 async fn query_text(bridge: &BridgeClient, selector: &str) -> Result<String> {
@@ -152,6 +168,15 @@ async fn screenshot(bridge: &BridgeClient, path: Option<&str>) -> Result<String>
     }
 }
 
+async fn resize(bridge: &BridgeClient, width: u32, height: u32) -> Result<String> {
+    let resp = bridge.resize(width, height).await?;
+    if resp.success {
+        Ok(format!("Window resized to {}x{}", resp.width, resp.height))
+    } else {
+        Err(anyhow!(resp.error.unwrap_or_else(|| "Unknown error".to_string())))
+    }
+}
+
 fn extract_result(resp: crate::bridge::EvalResponse) -> Result<String> {
     if resp.success {
         Ok(resp.result.unwrap_or_else(|| "null".to_string()))
@@ -198,6 +223,20 @@ mod tests {
             error: Some("failed".to_string()),
         };
         let result = extract_result(resp);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_u32_arg_success() {
+        let args = json!({"width": 800});
+        let result = get_u32_arg(&args, "width").unwrap();
+        assert_eq!(result, 800);
+    }
+
+    #[test]
+    fn test_get_u32_arg_missing() {
+        let args = json!({});
+        let result = get_u32_arg(&args, "width");
         assert!(result.is_err());
     }
 }

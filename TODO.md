@@ -1,8 +1,8 @@
 # TODO: Inspector Quick Wins
 
 ## Phase 1: Window Control
-- [ ] Step 1.1: Add resize endpoint to bridge
-- [ ] Step 1.2: Add resize MCP tool
+- [x] Step 1.1: Add resize endpoint to bridge
+- [x] Step 1.2: Add resize MCP tool
 
 ## Phase 2: DOM Statistics
 - [ ] Step 2.1: Add stats endpoint to bridge

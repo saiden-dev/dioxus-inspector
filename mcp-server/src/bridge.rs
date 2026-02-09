@@ -163,6 +163,18 @@ impl BridgeClient {
             .await?;
         Ok(resp)
     }
+
+    pub async fn resize(&self, width: u32, height: u32) -> Result<ResizeResponse> {
+        let resp = self
+            .client
+            .post(format!("{}/resize", self.base_url))
+            .json(&ResizeRequest { width, height })
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(resp)
+    }
 }
 
 #[cfg(test)]
@@ -203,5 +215,16 @@ mod tests {
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("property"));
+    }
+
+    #[test]
+    fn test_resize_request_serialize() {
+        let req = ResizeRequest {
+            width: 800,
+            height: 600,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("800"));
+        assert!(json.contains("600"));
     }
 }

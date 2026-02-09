@@ -1,13 +1,28 @@
 return (() => {
+    const SKIP_TAGS = new Set(['script', 'style', 'noscript', 'link', 'meta']);
+    const MAX_TEXT_LEN = 200;
+
     function serialize(el, depth = 0) {
         if (depth > 10) return { tag: '...', truncated: true };
+
+        // Text nodes
         if (el.nodeType === 3) {
-            const text = el.textContent.trim();
-            return text ? { text } : null;
+            let text = el.textContent.trim();
+            if (!text) return null;
+            if (text.length > MAX_TEXT_LEN) {
+                text = text.slice(0, MAX_TEXT_LEN) + '...';
+            }
+            return { text };
         }
+
         if (el.nodeType !== 1) return null;
 
-        const node = { tag: el.tagName.toLowerCase() };
+        const tag = el.tagName.toLowerCase();
+
+        // Skip scripts, styles, etc.
+        if (SKIP_TAGS.has(tag)) return null;
+
+        const node = { tag };
         if (el.id) node.id = el.id;
         if (el.className && typeof el.className === 'string') {
             node.class = el.className;

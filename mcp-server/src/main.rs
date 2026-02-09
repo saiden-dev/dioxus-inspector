@@ -115,6 +115,10 @@ fn tools_list() -> Value {
             tool_def("diagnose", "Quick UI health check", json!({})),
             tool_def("screenshot", "Capture window screenshot", json!({
                 "path": { "type": "string", "description": "Output path (optional)" }
+            })),
+            tool_def("resize", "Resize the window", json!({
+                "width": { "type": "number", "description": "Window width in pixels" },
+                "height": { "type": "number", "description": "Window height in pixels" }
             }))
         ]
     })

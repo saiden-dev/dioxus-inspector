@@ -4,7 +4,9 @@
       "mcp__personality__speak",
       "mcp__dioxus__status",
       "mcp__dioxus__screenshot",
-      "mcp__dioxus__click"
+      "mcp__dioxus__click",
+      "mcp__dioxus__diagnose",
+      "mcp__dioxus__get_dom"
     ]
   },
   "enableAllProjectMcpServers": true,
