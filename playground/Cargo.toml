@@ -1,0 +1,16 @@
+[package]
+name = "playground"
+version = "0.1.0"
+edition = "2021"
+description = "Dioxus Inspector playground app"
+
+[[bin]]
+name = "playground"
+path = "src/main.rs"
+
+[dependencies]
+dioxus = { version = "0.6", features = ["desktop"] }
+dioxus-inspector = { path = ".." }
+tokio = { version = "1", features = ["sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

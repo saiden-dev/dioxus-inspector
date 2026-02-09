@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [".", "mcp-server", "playground"]
+
+[package]
+name = "dioxus-inspector"
+version = "0.1.0"
+edition = "2021"
+description = "HTTP bridge for inspecting and debugging Dioxus Desktop apps"
+license = "MIT"
+repository = "https://github.com/aladac/dioxus-inspector"
+keywords = ["dioxus", "debugging", "inspector", "mcp"]
+categories = ["development-tools::debugging", "gui"]
+
+[dependencies]
+# Async HTTP server
+axum = "0.8"
+tokio = { version = "1", features = ["rt", "net", "sync"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Logging
+tracing = "0.1"
+
+# macOS window capture
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.24"
+core-foundation = "0.10"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

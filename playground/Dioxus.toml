@@ -1,0 +1,20 @@
+[application]
+name = "playground"
+default_platform = "desktop"
+
+[web.app]
+title = "Inspector Playground"
+
+[web.watcher]
+reload_html = true
+watch_path = ["src", "assets"]
+
+[web.resource]
+dev_path = "assets"
+style = ["tailwind.css"]
+
+[[desktop.window]]
+title = "Inspector Playground"
+width = 800
+height = 600
+resizable = true
