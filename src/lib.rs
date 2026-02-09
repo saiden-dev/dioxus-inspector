@@ -1,31 +1,68 @@
-//! Dioxus Inspector
+//! # Dioxus Inspector
 //!
 //! HTTP bridge for inspecting and debugging Dioxus Desktop apps.
 //! Embed this in your app to enable MCP-based debugging from Claude Code.
 //!
-//! # Quick Start
+//! ## Quick Start
 //!
 //! ```rust,ignore
 //! use dioxus::prelude::*;
-//! use dioxus_inspector::start_bridge;
+//! use dioxus_inspector::{start_bridge, EvalResponse};
+//!
+//! fn main() {
+//!     dioxus::launch(app);
+//! }
 //!
 //! fn app() -> Element {
 //!     use_inspector_bridge(9999, "my-app");
 //!     rsx! { div { "Hello, inspector!" } }
 //! }
+//!
+//! fn use_inspector_bridge(port: u16, app_name: &str) {
+//!     use_hook(|| {
+//!         let mut eval_rx = start_bridge(port, app_name);
+//!         spawn(async move {
+//!             while let Some(cmd) = eval_rx.recv().await {
+//!                 let result = document::eval(&cmd.script).await;
+//!                 let response = match result {
+//!                     Ok(val) => EvalResponse::success(val.to_string()),
+//!                     Err(e) => EvalResponse::error(e.to_string()),
+//!                 };
+//!                 let _ = cmd.response_tx.send(response);
+//!             }
+//!         });
+//!     });
+//! }
 //! ```
 //!
-//! # Endpoints
+//! ## Architecture
 //!
-//! - `GET /status` - App status, PID, uptime
-//! - `POST /eval` - Execute JavaScript in webview
-//! - `POST /query` - Query DOM by CSS selector
-//! - `GET /dom` - Get simplified DOM tree
-//! - `POST /inspect` - Element visibility analysis
-//! - `POST /validate-classes` - Check CSS class availability
-//! - `GET /diagnose` - Quick UI health check
-//! - `POST /screenshot` - Capture window (macOS)
-//! - `POST /resize` - Resize window (requires app handling)
+//! ```text
+//! Claude Code <--MCP--> dioxus-mcp <--HTTP--> dioxus-inspector <--eval--> WebView
+//! ```
+//!
+//! 1. Call [`start_bridge`] with a port and app name
+//! 2. Poll the returned receiver for [`EvalCommand`]s
+//! 3. Execute JavaScript via `document::eval()` and send responses back
+//!
+//! ## HTTP Endpoints
+//!
+//! | Endpoint | Method | Purpose |
+//! |----------|--------|---------|
+//! | `/status` | GET | App status, PID, uptime |
+//! | `/eval` | POST | Execute JavaScript in webview |
+//! | `/query` | POST | Query DOM by CSS selector |
+//! | `/dom` | GET | Get simplified DOM tree |
+//! | `/inspect` | POST | Element visibility analysis |
+//! | `/validate-classes` | POST | Check CSS class availability |
+//! | `/diagnose` | GET | Quick UI health check |
+//! | `/screenshot` | POST | Capture window (macOS only) |
+//! | `/resize` | POST | Resize window (requires app handling) |
+//!
+//! ## Platform Support
+//!
+//! - **Screenshot capture**: macOS only (uses Core Graphics)
+//! - **All other features**: Cross-platform
 
 mod handlers;
 mod screenshot;
@@ -40,11 +77,18 @@ use axum::{routing::get, Router};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-/// Shared state for the HTTP bridge
+/// Shared state for the HTTP bridge.
+///
+/// This struct holds the internal state used by the Axum handlers.
+/// You don't need to interact with this directly.
 pub struct BridgeState {
+    /// The application name, used in status responses.
     pub app_name: String,
+    /// Channel to send eval commands to the Dioxus app.
     pub eval_tx: mpsc::Sender<EvalCommand>,
+    /// When the bridge was started, for uptime calculation.
     pub started_at: std::time::Instant,
+    /// Process ID of the running application.
     pub pid: u32,
 }
 
