@@ -129,6 +129,19 @@ cargo tarpaulin              # Coverage report
 4. **Test with playground** - `just playground` in one terminal
 5. **Test MCP** - Use Claude Code with dioxus-mcp configured
 
+### Restart Requirements
+
+After code changes, components must be restarted to pick up changes:
+
+| Changed | Restart Required |
+|---------|------------------|
+| `src/` (library) | Playground app (rebuild + restart) |
+| `mcp-server/` | MCP server (Claude Code will auto-restart on next tool call after rebuild) |
+| `playground/` | Playground app |
+| `src/scripts/*.js` | Playground app (scripts are embedded at compile time) |
+
+**Important**: Always ask the user to restart the appropriate component before testing changes.
+
 ## MCP Server Configuration
 
 Add to Claude Code settings (`~/.claude/settings.json`):

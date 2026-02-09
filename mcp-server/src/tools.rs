@@ -78,11 +78,7 @@ async fn status(bridge: &BridgeClient) -> Result<String> {
 
 async fn get_dom(bridge: &BridgeClient) -> Result<String> {
     let resp = bridge.dom().await?;
-    let json_str = extract_result(resp)?;
-    // Parse and re-serialize to get clean formatting (not escaped)
-    let parsed: Value = serde_json::from_str(&json_str)
-        .map_err(|e| anyhow!("Invalid DOM JSON: {}", e))?;
-    Ok(serde_json::to_string_pretty(&parsed)?)
+    extract_result(resp)
 }
 
 async fn query_text(bridge: &BridgeClient, selector: &str) -> Result<String> {

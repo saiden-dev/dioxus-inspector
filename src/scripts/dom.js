@@ -1,41 +1,46 @@
 return (() => {
     const SKIP_TAGS = new Set(['script', 'style', 'noscript', 'link', 'meta']);
-    const MAX_TEXT_LEN = 200;
+    const MAX_TEXT_LEN = 80;
+    const MAX_CLASS_LEN = 40;
 
-    function serialize(el, depth = 0) {
-        if (depth > 10) return { tag: '...', truncated: true };
+    function serialize(el, depth = 0, indent = '') {
+        if (depth > 10) return indent + '...\n';
 
         // Text nodes
         if (el.nodeType === 3) {
             let text = el.textContent.trim();
-            if (!text) return null;
+            if (!text) return '';
             if (text.length > MAX_TEXT_LEN) {
                 text = text.slice(0, MAX_TEXT_LEN) + '...';
             }
-            return { text };
+            return indent + '"' + text + '"\n';
         }
 
-        if (el.nodeType !== 1) return null;
+        if (el.nodeType !== 1) return '';
 
         const tag = el.tagName.toLowerCase();
+        if (SKIP_TAGS.has(tag)) return '';
 
-        // Skip scripts, styles, etc.
-        if (SKIP_TAGS.has(tag)) return null;
-
-        const node = { tag };
-        if (el.id) node.id = el.id;
+        // Build selector-like representation
+        let line = tag;
+        if (el.id) line += '#' + el.id;
         if (el.className && typeof el.className === 'string') {
-            node.class = el.className;
+            let classes = el.className.trim();
+            if (classes.length > MAX_CLASS_LEN) {
+                classes = classes.slice(0, MAX_CLASS_LEN) + '...';
+            }
+            if (classes) line += '.' + classes.split(/\s+/).join('.');
         }
 
-        const children = [];
+        let result = indent + line + '\n';
+
+        // Recurse children
         for (const child of el.childNodes) {
-            const serialized = serialize(child, depth + 1);
-            if (serialized) children.push(serialized);
+            result += serialize(child, depth + 1, indent + '  ');
         }
-        if (children.length > 0) node.children = children;
 
-        return node;
+        return result;
     }
-    return JSON.stringify(serialize(document.body), null, 2);
+
+    return serialize(document.body).trim();
 })()
