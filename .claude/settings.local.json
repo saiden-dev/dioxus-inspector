@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "mcp__personality__speak"
+      "mcp__personality__speak",
+      "mcp__dioxus__status",
+      "mcp__dioxus__screenshot",
+      "mcp__dioxus__click"
     ]
   },
   "enableAllProjectMcpServers": true,

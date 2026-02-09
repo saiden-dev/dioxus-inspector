@@ -8,7 +8,8 @@ use dioxus::desktop::{
 };
 use dioxus::prelude::*;
 use dioxus_inspector::{EvalResponse, start_bridge};
-use state::AppState;
+use dioxus_primitives::separator::Separator;
+use state::{AppState, Section};
 
 const BRIDGE_PORT: u16 = 9999;
 
@@ -116,30 +117,132 @@ fn app() -> Element {
         });
     });
 
-    rsx! {
-        document::Link { rel: "stylesheet", href: asset!("./assets/tailwind.css") }
+    let sidebar_open = *state.read().sidebar_open.read();
 
-        div { class: "min-h-screen bg-gray-900 text-white p-8",
-            div { class: "max-w-2xl mx-auto",
-                Header {}
-                CounterSection { state }
-                MessageSection { state }
-                InspectorInfo {}
+    rsx! {
+        document::Link { rel: "stylesheet", href: asset!("/assets/tailwind.css") }
+
+        div { class: "min-h-screen bg-gray-900 text-white flex",
+            // Sidebar
+            Sidebar { state }
+
+            // Main content
+            div {
+                class: if sidebar_open { "flex-1 p-8 ml-64" } else { "flex-1 p-8 ml-16" },
+                div { class: "max-w-2xl mx-auto",
+                    Header { state }
+                    MainContent { state }
+                }
             }
         }
     }
 }
 
 #[component]
-fn Header() -> Element {
+fn Sidebar(state: Signal<AppState>) -> Element {
+    let sidebar_open = *state.read().sidebar_open.read();
+    let active = *state.read().active_section.read();
+
+    rsx! {
+        aside {
+            id: "sidebar",
+            class: if sidebar_open { "sidebar sidebar-open" } else { "sidebar sidebar-collapsed" },
+
+            // Toggle button
+            button {
+                class: "sidebar-toggle",
+                onclick: move |_| state.write().toggle_sidebar(),
+                if sidebar_open { "«" } else { "»" }
+            }
+
+            if sidebar_open {
+                // Logo/Title
+                div { class: "sidebar-header",
+                    h2 { class: "text-lg font-bold text-blue-400", "Inspector" }
+                    p { class: "text-xs text-gray-500", "Playground" }
+                }
+
+                Separator { class: "sidebar-separator" }
+
+                // Navigation
+                nav { class: "sidebar-nav",
+                    SidebarItem {
+                        label: "Counter",
+                        active: active == Section::Counter,
+                        onclick: move |_| state.write().set_section(Section::Counter)
+                    }
+                    SidebarItem {
+                        label: "Message",
+                        active: active == Section::Message,
+                        onclick: move |_| state.write().set_section(Section::Message)
+                    }
+                    SidebarItem {
+                        label: "Inspector",
+                        active: active == Section::Inspector,
+                        onclick: move |_| state.write().set_section(Section::Inspector)
+                    }
+                }
+
+                Separator { class: "sidebar-separator" }
+
+                // Status indicator
+                div { class: "sidebar-footer",
+                    div { class: "flex items-center gap-2",
+                        span { class: "status-dot" }
+                        span { class: "text-sm text-gray-400", "Bridge Active" }
+                    }
+                    code { class: "text-xs text-green-400 mt-1 block",
+                        ":{BRIDGE_PORT}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn SidebarItem(label: &'static str, active: bool, onclick: EventHandler<MouseEvent>) -> Element {
+    let class = if active { "sidebar-item active" } else { "sidebar-item" };
+
+    rsx! {
+        button {
+            class: class,
+            onclick: move |e| onclick.call(e),
+            "{label}"
+        }
+    }
+}
+
+#[component]
+fn Header(state: Signal<AppState>) -> Element {
+    let active = *state.read().active_section.read();
+    let title = match active {
+        Section::Counter => "Counter Demo",
+        Section::Message => "Message Demo",
+        Section::Inspector => "Inspector Info",
+    };
+
     rsx! {
         header { class: "mb-8",
             h1 { class: "text-3xl font-bold text-blue-400",
-                "Inspector Playground"
+                "{title}"
             }
             p { class: "text-gray-400 mt-2",
                 "A Dioxus desktop app with inspector bridge enabled"
             }
+        }
+    }
+}
+
+#[component]
+fn MainContent(state: Signal<AppState>) -> Element {
+    let active = *state.read().active_section.read();
+
+    rsx! {
+        match active {
+            Section::Counter => rsx! { CounterSection { state } },
+            Section::Message => rsx! { MessageSection { state } },
+            Section::Inspector => rsx! { InspectorInfo {} },
         }
     }
 }

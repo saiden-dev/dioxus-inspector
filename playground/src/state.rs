@@ -2,11 +2,22 @@
 
 use dioxus::prelude::*;
 
+/// Navigation sections in the sidebar.
+#[derive(Clone, Copy, PartialEq, Default)]
+pub enum Section {
+    #[default]
+    Counter,
+    Message,
+    Inspector,
+}
+
 /// Global application state using Signals.
 #[derive(Clone, Copy)]
 pub struct AppState {
     pub counter: Signal<i32>,
     pub message: Signal<String>,
+    pub sidebar_open: Signal<bool>,
+    pub active_section: Signal<Section>,
 }
 
 impl AppState {
@@ -15,7 +26,20 @@ impl AppState {
         Self {
             counter: Signal::new(0),
             message: Signal::new("Hello from Inspector Playground!".to_string()),
+            sidebar_open: Signal::new(true),
+            active_section: Signal::new(Section::Counter),
         }
+    }
+
+    /// Toggle sidebar visibility.
+    pub fn toggle_sidebar(&mut self) {
+        let current = *self.sidebar_open.read();
+        self.sidebar_open.set(!current);
+    }
+
+    /// Set active section.
+    pub fn set_section(&mut self, section: Section) {
+        self.active_section.set(section);
     }
 
     /// Increment the counter.
