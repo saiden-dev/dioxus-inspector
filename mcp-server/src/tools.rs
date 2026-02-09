@@ -78,7 +78,13 @@ async fn status(bridge: &BridgeClient) -> Result<String> {
 
 async fn get_dom(bridge: &BridgeClient) -> Result<String> {
     let resp = bridge.dom().await?;
-    extract_result(resp)
+    let json_str = extract_result(resp)?;
+    // Result is double-encoded: parse outer string, then inner JSON
+    let inner: String = serde_json::from_str(&json_str)
+        .map_err(|e| anyhow!("Failed to unescape: {}", e))?;
+    let parsed: Value = serde_json::from_str(&inner)
+        .map_err(|e| anyhow!("Invalid DOM JSON: {}", e))?;
+    Ok(serde_json::to_string_pretty(&parsed)?)
 }
 
 async fn query_text(bridge: &BridgeClient, selector: &str) -> Result<String> {
