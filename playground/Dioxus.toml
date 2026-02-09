@@ -9,12 +9,8 @@ title = "Inspector Playground"
 reload_html = true
 watch_path = ["src", "assets"]
 
-[web.resource]
-dev_path = "assets"
-style = ["tailwind.css"]
-
 [[desktop.window]]
-title = "Inspector Playground"
-width = 800
-height = 600
+title = "Profile Card"
+width = 480
+height = 640
 resizable = true

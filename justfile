@@ -29,6 +29,14 @@ fmt:
 playground:
     cargo run -p playground
 
+# Run playground with hot reload
+dev:
+    cd playground && dx serve
+
+# Run playground with hot reload (fullscreen)
+dev-fs monitor="0":
+    cd playground && DI_FULLSCREEN=1 DI_MONITOR={{monitor}} dx serve
+
 # List available monitors
 monitors:
     DI_LIST_MONITORS=1 cargo run -p playground 2>/dev/null

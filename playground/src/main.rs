@@ -1,56 +1,15 @@
-//! Inspector Playground - Dioxus desktop app with inspector bridge.
+//! Inspector Playground - Simple UI showcase with inspector bridge.
 
-mod state;
-
-use dioxus::desktop::{
-    tao::dpi::LogicalSize,
-    window, Config, WindowBuilder,
-};
+use dioxus::desktop::{tao::dpi::LogicalSize, Config, WindowBuilder};
 use dioxus::prelude::*;
-use dioxus_inspector::{EvalResponse, start_bridge};
-use dioxus_primitives::separator::Separator;
-use state::{AppState, Section};
+use dioxus_inspector::{start_bridge, EvalResponse};
 
 const BRIDGE_PORT: u16 = 9999;
 
-/// Dev options read from environment:
-/// - DI_FULLSCREEN=1      Start in fullscreen mode
-/// - DI_MONITOR=N         Use monitor N (0=primary, 1=secondary, etc.)
-/// - DI_LIST_MONITORS=1   Print available monitors and exit
-struct DevOptions {
-    fullscreen: bool,
-    monitor_index: usize,
-    list_monitors: bool,
-}
-
-impl DevOptions {
-    fn from_env() -> Self {
-        Self {
-            fullscreen: std::env::var("DI_FULLSCREEN").is_ok(),
-            monitor_index: std::env::var("DI_MONITOR")
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0),
-            list_monitors: std::env::var("DI_LIST_MONITORS").is_ok(),
-        }
-    }
-}
-
 fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
-        )
-        .init();
-
-    tracing::info!("Starting Inspector Playground");
-
     let window = WindowBuilder::new()
-        .with_title("Inspector Playground")
-        .with_maximizable(true)
-        .with_resizable(true)
-        .with_inner_size(LogicalSize::new(800, 600));
+        .with_title("Profile Card")
+        .with_inner_size(LogicalSize::new(480, 640));
 
     let config = Config::new().with_window(window);
 
@@ -58,294 +17,111 @@ fn main() {
 }
 
 fn app() -> Element {
-    let state = use_signal(AppState::new);
-
-    // Dev options: DI_FULLSCREEN=1 DI_MONITOR=N DI_LIST_MONITORS=1
-    // Must be done after app starts to access monitors via window()
-    use_hook(|| {
-        let opts = DevOptions::from_env();
-        let monitors: Vec<_> = window().available_monitors().collect();
-
-        if opts.list_monitors {
-            println!("Available monitors:");
-            for (i, monitor) in monitors.iter().enumerate() {
-                let size = monitor.size();
-                let scale = monitor.scale_factor();
-                let name = monitor.name().unwrap_or_else(|| "Unknown".to_string());
-                // Show effective resolution (UI looks like) for HiDPI displays
-                let effective_w = (size.width as f64 / scale).round() as u32;
-                let effective_h = (size.height as f64 / scale).round() as u32;
-                println!(
-                    "  {}: {} ({}x{} @{}x)",
-                    i, name, effective_w, effective_h, scale
-                );
-            }
-            std::process::exit(0);
-        }
-
-        if opts.fullscreen {
-            let target_monitor = monitors.get(opts.monitor_index).or(monitors.first());
-
-            if let Some(monitor) = target_monitor {
-                // Move window to the target monitor, then fullscreen
-                let pos = monitor.position();
-                window().set_outer_position(pos);
-                window().set_fullscreen(true);
-            }
-        }
-    });
-
-    // Start the inspector bridge and handle eval commands
-    use_effect(move || {
+    // Start inspector bridge
+    use_effect(|| {
         let mut eval_rx = start_bridge(BRIDGE_PORT, "playground");
 
         spawn(async move {
             while let Some(cmd) = eval_rx.recv().await {
-                tracing::debug!("Executing: {}", &cmd.script[..cmd.script.len().min(50)]);
-
-                // Check for special resize command pattern
-                let response = if let Some((width, height)) = parse_resize_command(&cmd.script) {
-                    tracing::info!("Resizing window to {}x{}", width, height);
-                    window().set_inner_size(LogicalSize::new(width, height));
-                    EvalResponse::success(format!("resized to {}x{}", width, height))
-                } else {
-                    // Normal eval
-                    match document::eval(&cmd.script).await {
-                        Ok(val) => EvalResponse::success(val.to_string()),
-                        Err(e) => EvalResponse::error(e.to_string()),
-                    }
+                let response = match document::eval(&cmd.script).await {
+                    Ok(val) => EvalResponse::success(val.to_string()),
+                    Err(e) => EvalResponse::error(e.to_string()),
                 };
-
                 let _ = cmd.response_tx.send(response);
             }
         });
     });
 
-    let sidebar_open = *state.read().sidebar_open.read();
-
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/tailwind.css") }
 
-        div { class: "min-h-screen bg-gray-900 text-white flex",
-            // Sidebar
-            Sidebar { state }
+        div { class: "min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-8",
+            ProfileCard {}
+        }
+    }
+}
 
-            // Main content
+#[component]
+fn ProfileCard() -> Element {
+    rsx! {
+        article {
+            id: "profile-card",
+            class: "bg-slate-800 rounded-2xl shadow-2xl overflow-hidden max-w-sm w-full",
+
+            // Header with gradient
+            header {
+                id: "card-header",
+                class: "h-24 bg-gradient-to-r from-blue-600 to-purple-600"
+            }
+
+            // Avatar
+            div { class: "flex justify-center -mt-12",
+                div {
+                    id: "avatar",
+                    class: "w-24 h-24 rounded-full bg-slate-700 border-4 border-slate-800 flex items-center justify-center text-4xl",
+                    "🦀"
+                }
+            }
+
+            // Content
+            div { class: "text-center px-6 py-4",
+                h1 {
+                    id: "name",
+                    class: "text-xl font-bold text-white",
+                    "Ferris Developer"
+                }
+                p {
+                    id: "title",
+                    class: "text-blue-400 text-sm",
+                    "Rust Enthusiast"
+                }
+                p {
+                    id: "bio",
+                    class: "text-slate-400 text-sm mt-3 leading-relaxed",
+                    "Building desktop apps with Dioxus. Debugging with the Inspector bridge."
+                }
+            }
+
+            // Stats
             div {
-                class: if sidebar_open { "flex-1 p-8 ml-64" } else { "flex-1 p-8 ml-16" },
-                div { class: "max-w-2xl mx-auto",
-                    Header { state }
-                    MainContent { state }
-                }
-            }
-        }
-    }
-}
+                id: "stats",
+                class: "flex justify-around py-4 border-t border-slate-700",
 
-#[component]
-fn Sidebar(state: Signal<AppState>) -> Element {
-    let sidebar_open = *state.read().sidebar_open.read();
-    let active = *state.read().active_section.read();
-
-    rsx! {
-        aside {
-            id: "sidebar",
-            class: if sidebar_open { "sidebar sidebar-open" } else { "sidebar sidebar-collapsed" },
-
-            // Toggle button
-            button {
-                class: "sidebar-toggle",
-                onclick: move |_| state.write().toggle_sidebar(),
-                if sidebar_open { "«" } else { "»" }
+                StatItem { label: "Projects", value: "42" }
+                StatItem { label: "Stars", value: "1.2k" }
+                StatItem { label: "Commits", value: "847" }
             }
 
-            if sidebar_open {
-                // Logo/Title
-                div { class: "sidebar-header",
-                    h2 { class: "text-lg font-bold text-blue-400", "Inspector" }
-                    p { class: "text-xs text-gray-500", "Playground" }
-                }
-
-                Separator { class: "sidebar-separator" }
-
-                // Navigation
-                nav { class: "sidebar-nav",
-                    SidebarItem {
-                        label: "Counter",
-                        active: active == Section::Counter,
-                        onclick: move |_| state.write().set_section(Section::Counter)
-                    }
-                    SidebarItem {
-                        label: "Message",
-                        active: active == Section::Message,
-                        onclick: move |_| state.write().set_section(Section::Message)
-                    }
-                    SidebarItem {
-                        label: "Inspector",
-                        active: active == Section::Inspector,
-                        onclick: move |_| state.write().set_section(Section::Inspector)
-                    }
-                }
-
-                Separator { class: "sidebar-separator" }
-
-                // Status indicator
-                div { class: "sidebar-footer",
-                    div { class: "flex items-center gap-2",
-                        span { class: "status-dot" }
-                        span { class: "text-sm text-gray-400", "Bridge Active" }
-                    }
-                    code { class: "text-xs text-green-400 mt-1 block",
-                        ":{BRIDGE_PORT}"
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn SidebarItem(label: &'static str, active: bool, onclick: EventHandler<MouseEvent>) -> Element {
-    let class = if active { "sidebar-item active" } else { "sidebar-item" };
-
-    rsx! {
-        button {
-            class: class,
-            onclick: move |e| onclick.call(e),
-            "{label}"
-        }
-    }
-}
-
-#[component]
-fn Header(state: Signal<AppState>) -> Element {
-    let active = *state.read().active_section.read();
-    let title = match active {
-        Section::Counter => "Counter Demo",
-        Section::Message => "Message Demo",
-        Section::Inspector => "Inspector Info",
-    };
-
-    rsx! {
-        header { class: "mb-8",
-            h1 { class: "text-3xl font-bold text-blue-400",
-                "{title}"
-            }
-            p { class: "text-gray-400 mt-2",
-                "A Dioxus desktop app with inspector bridge enabled"
-            }
-        }
-    }
-}
-
-#[component]
-fn MainContent(state: Signal<AppState>) -> Element {
-    let active = *state.read().active_section.read();
-
-    rsx! {
-        match active {
-            Section::Counter => rsx! { CounterSection { state } },
-            Section::Message => rsx! { MessageSection { state } },
-            Section::Inspector => rsx! { InspectorInfo {} },
-        }
-    }
-}
-
-#[component]
-fn CounterSection(state: Signal<AppState>) -> Element {
-    let count = state.read().counter.read().to_string();
-
-    rsx! {
-        section {
-            id: "counter-section",
-            class: "bg-gray-800 rounded-lg p-6 mb-6",
-
-            h2 { class: "text-xl font-semibold mb-4", "Counter Demo" }
-
-            div { class: "flex items-center gap-4",
+            // Action buttons
+            div { class: "px-6 pb-6 flex gap-3",
                 button {
-                    class: "btn-primary",
-                    onclick: move |_| state.write().decrement(),
-                    "-"
-                }
-                span {
-                    id: "counter-value",
-                    class: "text-4xl font-mono w-20 text-center",
-                    "{count}"
+                    id: "btn-follow",
+                    class: "flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition",
+                    "Follow"
                 }
                 button {
-                    class: "btn-primary",
-                    onclick: move |_| state.write().increment(),
-                    "+"
+                    id: "btn-message",
+                    class: "flex-1 bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg transition",
+                    "Message"
                 }
-                button {
-                    class: "btn-secondary ml-4",
-                    onclick: move |_| state.write().reset(),
-                    "Reset"
-                }
+            }
+
+            // Footer
+            footer {
+                id: "card-footer",
+                class: "px-6 py-3 bg-slate-900/50 text-center",
+                code { class: "text-xs text-green-400", "Inspector :9999" }
             }
         }
     }
 }
 
 #[component]
-fn MessageSection(state: Signal<AppState>) -> Element {
-    let message = state.read().message.read().clone();
-
+fn StatItem(label: &'static str, value: &'static str) -> Element {
     rsx! {
-        section {
-            id: "message-section",
-            class: "bg-gray-800 rounded-lg p-6 mb-6",
-
-            h2 { class: "text-xl font-semibold mb-4", "Message" }
-
-            p {
-                id: "message-display",
-                class: "text-lg text-gray-300 mb-4",
-                "{message}"
-            }
-
-            input {
-                r#type: "text",
-                class: "input-field w-full",
-                placeholder: "Type a new message...",
-                value: "{message}",
-                oninput: move |evt| state.write().set_message(evt.value())
-            }
+        div { class: "text-center",
+            p { class: "text-white font-bold", "{value}" }
+            p { class: "text-slate-500 text-xs", "{label}" }
         }
     }
-}
-
-#[component]
-fn InspectorInfo() -> Element {
-    rsx! {
-        section { class: "bg-gray-800 rounded-lg p-6 border border-blue-500/30",
-            h2 { class: "text-xl font-semibold mb-4 text-blue-400",
-                "Inspector Bridge Active"
-            }
-            p { class: "text-gray-400 mb-2",
-                "The inspector bridge is listening on:"
-            }
-            code { class: "text-green-400 font-mono",
-                "http://127.0.0.1:{BRIDGE_PORT}"
-            }
-            p { class: "text-gray-500 mt-4 text-sm",
-                "Use the dioxus-mcp server to connect from Claude Code."
-            }
-        }
-    }
-}
-
-/// Parse resize command from eval script.
-/// Format: `return '__DIOXUS_INSPECTOR_RESIZE__{width}x{height}__'`
-fn parse_resize_command(script: &str) -> Option<(u32, u32)> {
-    const PREFIX: &str = "__DIOXUS_INSPECTOR_RESIZE__";
-    const SUFFIX: &str = "__";
-
-    let start = script.find(PREFIX)? + PREFIX.len();
-    let end = script[start..].find(SUFFIX)?;
-    let dims = &script[start..start + end];
-
-    let (w, h) = dims.split_once('x')?;
-    Some((w.parse().ok()?, h.parse().ok()?))
 }
