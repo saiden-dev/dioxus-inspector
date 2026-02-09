@@ -4,7 +4,7 @@ members = [".", "mcp-server", "playground"]
 
 [package]
 name = "dioxus-inspector"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "HTTP bridge for inspecting and debugging Dioxus Desktop apps"
 license = "MIT"
