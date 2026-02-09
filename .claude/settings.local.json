@@ -7,7 +7,9 @@
       "mcp__dioxus__click",
       "mcp__dioxus__diagnose",
       "mcp__dioxus__get_dom",
-      "mcp__dioxus__query_text"
+      "mcp__dioxus__query_text",
+      "mcp__dioxus__query_all",
+      "mcp__dioxus__inspect"
     ]
   },
   "enableAllProjectMcpServers": true,

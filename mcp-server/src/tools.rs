@@ -78,13 +78,7 @@ async fn status(bridge: &BridgeClient) -> Result<String> {
 
 async fn get_dom(bridge: &BridgeClient) -> Result<String> {
     let resp = bridge.dom().await?;
-    let json_str = extract_result(resp)?;
-    // Result is double-encoded: parse outer string, then inner JSON
-    let inner: String = serde_json::from_str(&json_str)
-        .map_err(|e| anyhow!("Failed to unescape: {}", e))?;
-    let parsed: Value = serde_json::from_str(&inner)
-        .map_err(|e| anyhow!("Invalid DOM JSON: {}", e))?;
-    Ok(serde_json::to_string_pretty(&parsed)?)
+    extract_json_pretty(resp)
 }
 
 async fn query_text(bridge: &BridgeClient, selector: &str) -> Result<String> {
@@ -112,7 +106,7 @@ async fn query_all(bridge: &BridgeClient, selector: &str) -> Result<String> {
         serde_json::to_string(selector)?
     );
     let resp = bridge.eval(&script).await?;
-    extract_result(resp)
+    extract_json_pretty(resp)
 }
 
 async fn click(bridge: &BridgeClient, selector: &str) -> Result<String> {
@@ -153,12 +147,12 @@ async fn eval(bridge: &BridgeClient, script: &str) -> Result<String> {
 
 async fn inspect(bridge: &BridgeClient, selector: &str) -> Result<String> {
     let resp = bridge.inspect(selector).await?;
-    extract_result(resp)
+    extract_json_pretty(resp)
 }
 
 async fn diagnose(bridge: &BridgeClient) -> Result<String> {
     let resp = bridge.diagnose().await?;
-    extract_result(resp)
+    extract_json_pretty(resp)
 }
 
 async fn screenshot(bridge: &BridgeClient, path: Option<&str>) -> Result<String> {
@@ -185,6 +179,16 @@ fn extract_result(resp: crate::bridge::EvalResponse) -> Result<String> {
     } else {
         Err(anyhow!(resp.error.unwrap_or_else(|| "Unknown error".to_string())))
     }
+}
+
+/// Extract and pretty-print JSON from double-encoded response
+fn extract_json_pretty(resp: crate::bridge::EvalResponse) -> Result<String> {
+    let json_str = extract_result(resp)?;
+    let inner: String = serde_json::from_str(&json_str)
+        .map_err(|e| anyhow!("Failed to unescape: {}", e))?;
+    let parsed: Value = serde_json::from_str(&inner)
+        .map_err(|e| anyhow!("Invalid JSON: {}", e))?;
+    Ok(serde_json::to_string_pretty(&parsed)?)
 }
 
 #[cfg(test)]
