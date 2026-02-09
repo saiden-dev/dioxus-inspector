@@ -7,6 +7,11 @@
       "env": {
         "DIOXUS_BRIDGE_URL": "http://127.0.0.1:9999"
       }
+    },
+    "personality": {
+      "command": "uv",
+      "args": ["run", "psn", "mcp"],
+      "cwd": "/Users/chi/Projects/personality"
     }
   }
 }

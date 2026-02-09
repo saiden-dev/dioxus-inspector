@@ -1,15 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "mcp__dioxus__status",
-      "mcp__dioxus__get_dom",
-      "mcp__dioxus__click",
-      "mcp__dioxus__query_all",
-      "mcp__dioxus__eval",
-      "mcp__dioxus__query_text",
-      "mcp__dioxus__type_text",
-      "mcp__dioxus__screenshot",
-      "mcp__dioxus__diagnose"
+      "mcp__personality__speak"
     ]
   },
   "enableAllProjectMcpServers": true,
