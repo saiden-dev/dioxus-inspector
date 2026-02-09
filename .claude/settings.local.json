@@ -10,7 +10,10 @@
       "mcp__dioxus__query_text",
       "mcp__dioxus__query_all",
       "mcp__dioxus__inspect",
-      "mcp__dioxus__query_html"
+      "mcp__dioxus__query_html",
+      "mcp__plugin_browse_browse__goto",
+      "mcp__plugin_browse_browse__screenshot",
+      "mcp__plugin_browse_browse__close"
     ]
   },
   "enableAllProjectMcpServers": true,
