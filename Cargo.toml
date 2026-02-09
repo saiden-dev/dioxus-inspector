@@ -8,7 +8,7 @@ version = "0.1.0"
 edition = "2021"
 description = "HTTP bridge for inspecting and debugging Dioxus Desktop apps"
 license = "MIT"
-repository = "https://github.com/aladac/dioxus-inspector"
+repository = "https://github.com/saiden-dev/dioxus-inspector"
 keywords = ["dioxus", "debugging", "inspector", "mcp"]
 categories = ["development-tools::debugging", "gui"]
 
