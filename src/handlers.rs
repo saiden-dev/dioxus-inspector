@@ -7,8 +7,8 @@ use tokio::sync::oneshot;
 
 use crate::screenshot::capture_screenshot;
 use crate::types::{
-    EvalCommand, EvalRequest, EvalResponse, InspectRequest, QueryRequest, ScreenshotRequest,
-    ScreenshotResponse, StatusResponse, ValidateClassesRequest,
+    EvalCommand, EvalRequest, EvalResponse, InspectRequest, QueryRequest, ResizeRequest,
+    ResizeResponse, ScreenshotRequest, ScreenshotResponse, StatusResponse, ValidateClassesRequest,
 };
 use crate::BridgeState;
 
@@ -161,6 +161,40 @@ pub async fn screenshot(
             path: None,
             error: Some(e),
         }),
+    }
+}
+
+/// POST /resize - Resize the window.
+///
+/// Sends a resize command via eval. The app must handle the special
+/// `__DIOXUS_INSPECTOR_RESIZE__` script pattern to apply the resize.
+pub async fn resize(
+    State(state): State<Arc<BridgeState>>,
+    Json(req): Json<ResizeRequest>,
+) -> Result<Json<ResizeResponse>, StatusCode> {
+    // Send a special script that the app can intercept
+    // Format: __DIOXUS_INSPECTOR_RESIZE__{width},{height}__
+    let script = format!(
+        "return '__DIOXUS_INSPECTOR_RESIZE__{}x{}__'",
+        req.width, req.height
+    );
+
+    let response = send_eval(&state, script).await?;
+
+    if response.success {
+        Ok(Json(ResizeResponse {
+            success: true,
+            width: req.width,
+            height: req.height,
+            error: None,
+        }))
+    } else {
+        Ok(Json(ResizeResponse {
+            success: false,
+            width: req.width,
+            height: req.height,
+            error: response.error,
+        }))
     }
 }
 

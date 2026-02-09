@@ -90,6 +90,23 @@ pub struct ScreenshotResponse {
     pub error: Option<String>,
 }
 
+/// Request to resize the window.
+#[derive(Debug, Deserialize)]
+pub struct ResizeRequest {
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Response from resize operation.
+#[derive(Debug, Serialize)]
+pub struct ResizeResponse {
+    pub success: bool,
+    pub width: u32,
+    pub height: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,5 +182,27 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"status\":\"ok\""));
         assert!(json.contains("\"app\":\"test\""));
+    }
+
+    #[test]
+    fn test_resize_request_deserialize() {
+        let json = r#"{"width": 800, "height": 600}"#;
+        let req: ResizeRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.width, 800);
+        assert_eq!(req.height, 600);
+    }
+
+    #[test]
+    fn test_resize_response_serialize() {
+        let resp = ResizeResponse {
+            success: true,
+            width: 1024,
+            height: 768,
+            error: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"width\":1024"));
+        assert!(json.contains("\"height\":768"));
+        assert!(!json.contains("error"));
     }
 }

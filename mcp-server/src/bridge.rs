@@ -32,6 +32,12 @@ pub struct ScreenshotRequest {
     pub path: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ResizeRequest {
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct StatusResponse {
     pub status: String,
@@ -49,6 +55,14 @@ pub struct EvalResponse {
 pub struct ScreenshotResponse {
     pub success: bool,
     pub path: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResizeResponse {
+    pub success: bool,
+    pub width: u32,
+    pub height: u32,
     pub error: Option<String>,
 }
 

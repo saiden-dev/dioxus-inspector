@@ -25,12 +25,16 @@
 //! - `POST /validate-classes` - Check CSS class availability
 //! - `GET /diagnose` - Quick UI health check
 //! - `POST /screenshot` - Capture window (macOS)
+//! - `POST /resize` - Resize window (requires app handling)
 
 mod handlers;
 mod screenshot;
 mod types;
 
-pub use types::{EvalCommand, EvalRequest, EvalResponse, QueryRequest, StatusResponse};
+pub use types::{
+    EvalCommand, EvalRequest, EvalResponse, QueryRequest, ResizeRequest, ResizeResponse,
+    StatusResponse,
+};
 
 use axum::{routing::get, Router};
 use std::sync::Arc;
@@ -86,6 +90,7 @@ pub fn start_bridge(port: u16, app_name: impl Into<String>) -> mpsc::Receiver<Ev
         )
         .route("/diagnose", get(handlers::diagnose))
         .route("/screenshot", axum::routing::post(handlers::screenshot))
+        .route("/resize", axum::routing::post(handlers::resize))
         .with_state(state);
 
     tokio::spawn(async move {

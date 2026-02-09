@@ -103,13 +103,17 @@ fn app() -> Element {
             while let Some(cmd) = eval_rx.recv().await {
                 tracing::debug!("Executing: {}", &cmd.script[..cmd.script.len().min(50)]);
 
-                let result = document::eval(&cmd.script).await;
-                let response = match result {
-                    Ok(val) => {
-                        let s = val.to_string();
-                        EvalResponse::success(s)
+                // Check for special resize command pattern
+                let response = if let Some((width, height)) = parse_resize_command(&cmd.script) {
+                    tracing::info!("Resizing window to {}x{}", width, height);
+                    window().set_inner_size(LogicalSize::new(width, height));
+                    EvalResponse::success(format!("resized to {}x{}", width, height))
+                } else {
+                    // Normal eval
+                    match document::eval(&cmd.script).await {
+                        Ok(val) => EvalResponse::success(val.to_string()),
+                        Err(e) => EvalResponse::error(e.to_string()),
                     }
-                    Err(e) => EvalResponse::error(e.to_string()),
                 };
 
                 let _ = cmd.response_tx.send(response);
@@ -330,4 +334,18 @@ fn InspectorInfo() -> Element {
             }
         }
     }
+}
+
+/// Parse resize command from eval script.
+/// Format: `return '__DIOXUS_INSPECTOR_RESIZE__{width}x{height}__'`
+fn parse_resize_command(script: &str) -> Option<(u32, u32)> {
+    const PREFIX: &str = "__DIOXUS_INSPECTOR_RESIZE__";
+    const SUFFIX: &str = "__";
+
+    let start = script.find(PREFIX)? + PREFIX.len();
+    let end = script[start..].find(SUFFIX)?;
+    let dims = &script[start..start + end];
+
+    let (w, h) = dims.split_once('x')?;
+    Some((w.parse().ok()?, h.parse().ok()?))
 }
