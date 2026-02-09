@@ -129,6 +129,8 @@ cargo tarpaulin              # Coverage report
 4. **Test with playground** - `just playground` in one terminal
 5. **Test MCP** - Use Claude Code with dioxus-mcp configured
 
+**IMPORTANT**: Never run `just dev`, `just dev-fs`, `just playground`, or `dx serve` from Claude. These are long-running GUI processes that the user must start manually. Only provide the command for the user to run.
+
 ### Restart Requirements
 
 After code changes, components must be restarted to pick up changes:

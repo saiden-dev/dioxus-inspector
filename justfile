@@ -31,11 +31,11 @@ playground:
 
 # Run playground with hot reload
 dev:
-    cd playground && dx serve
+    @./scripts/dev-serve.sh
 
 # Run playground with hot reload (fullscreen)
 dev-fs monitor="0":
-    cd playground && DI_FULLSCREEN=1 DI_MONITOR={{monitor}} dx serve
+    @./scripts/dev-serve.sh {{monitor}} fullscreen
 
 # List available monitors
 monitors:

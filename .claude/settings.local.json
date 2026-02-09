@@ -9,7 +9,8 @@
       "mcp__dioxus__get_dom",
       "mcp__dioxus__query_text",
       "mcp__dioxus__query_all",
-      "mcp__dioxus__inspect"
+      "mcp__dioxus__inspect",
+      "mcp__dioxus__query_html"
     ]
   },
   "enableAllProjectMcpServers": true,
