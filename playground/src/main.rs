@@ -1,15 +1,27 @@
-//! Inspector Playground - Component Showcase
+//! Inspector Playground - Dioxus Primitives Showcase
 
 use dioxus::desktop::{tao::dpi::LogicalSize, window, Config, WindowBuilder};
 use dioxus::prelude::*;
 use dioxus_inspector::{start_bridge, EvalResponse};
+use dioxus_primitives::{
+    accordion::{Accordion, AccordionContent, AccordionItem, AccordionTrigger},
+    checkbox::{Checkbox, CheckboxIndicator},
+    progress::{Progress, ProgressIndicator},
+    separator::Separator,
+    slider::{Slider, SliderRange, SliderThumb, SliderTrack},
+    switch::{Switch, SwitchThumb},
+    tabs::{TabContent, TabList, TabTrigger, Tabs},
+    toggle::Toggle,
+    toggle_group::{ToggleGroup, ToggleItem},
+};
+use dioxus_terminal::{Terminal, Theme};
 
 const BRIDGE_PORT: u16 = 9999;
 
 fn main() {
     let window = WindowBuilder::new()
-        .with_title("Component Showcase")
-        .with_inner_size(LogicalSize::new(900, 700));
+        .with_title("Dioxus Primitives Showcase")
+        .with_inner_size(LogicalSize::new(1000, 1100));
 
     let config = Config::new().with_window(window);
     LaunchBuilder::desktop().with_cfg(config).launch(app);
@@ -35,7 +47,7 @@ fn app() -> Element {
     use_hook(apply_dev_options);
 
     use_effect(|| {
-        let mut eval_rx = start_bridge(BRIDGE_PORT, "showcase");
+        let mut eval_rx = start_bridge(BRIDGE_PORT, "primitives");
         spawn(async move {
             while let Some(cmd) = eval_rx.recv().await {
                 let response = match document::eval(&cmd.script).await {
@@ -49,6 +61,7 @@ fn app() -> Element {
 
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/tailwind.css") }
+        document::Style { {PRIMITIVE_STYLES} }
 
         div {
             id: "app",
@@ -57,111 +70,75 @@ fn app() -> Element {
             // Header
             header { id: "header", class: "mb-8 text-center",
                 h1 { class: "text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent",
-                    "Component Showcase"
+                    "Dioxus Primitives"
                 }
-                p { class: "text-slate-400 mt-2", "10 UI primitives • Inspector :9999" }
+                p { class: "text-slate-400 mt-2", "Headless UI components • Inspector :9999" }
             }
 
             // Grid layout
             div { class: "grid grid-cols-2 gap-6 max-w-4xl mx-auto",
 
-                // 1. Buttons
-                Section { id: "buttons", title: "Buttons",
-                    div { class: "flex flex-wrap gap-3",
-                        Button { variant: "primary", "Primary" }
-                        Button { variant: "secondary", "Secondary" }
-                        Button { variant: "outline", "Outline" }
-                        Button { variant: "ghost", "Ghost" }
-                        Button { variant: "danger", "Danger" }
-                    }
+                // Switch
+                Section { id: "switch", title: "Switch",
+                    SwitchDemo {}
                 }
 
-                // 2. Inputs
-                Section { id: "inputs", title: "Inputs",
-                    div { class: "space-y-3",
-                        Input { placeholder: "Default input..." }
-                        Input { placeholder: "With icon...", icon: "🔍" }
-                        Input { placeholder: "Disabled", disabled: true }
-                    }
+                // Checkbox
+                Section { id: "checkbox", title: "Checkbox",
+                    CheckboxDemo {}
                 }
 
-                // 3. Cards
-                Section { id: "cards", title: "Cards",
-                    div { class: "flex gap-3",
-                        Card { title: "Basic", "Simple card content" }
-                        Card { title: "Featured", featured: true, "Highlighted card" }
-                    }
-                }
-
-                // 4. Badges
-                Section { id: "badges", title: "Badges",
-                    div { class: "flex flex-wrap gap-2",
-                        Badge { variant: "default", "Default" }
-                        Badge { variant: "success", "Success" }
-                        Badge { variant: "warning", "Warning" }
-                        Badge { variant: "error", "Error" }
-                        Badge { variant: "info", "Info" }
-                    }
-                }
-
-                // 5. Avatars
-                Section { id: "avatars", title: "Avatars",
-                    div { class: "flex items-center gap-3",
-                        Avatar { size: "sm", "🦀" }
-                        Avatar { size: "md", "🚀" }
-                        Avatar { size: "lg", "⚡" }
-                        AvatarGroup {
-                            Avatar { size: "md", "A" }
-                            Avatar { size: "md", "B" }
-                            Avatar { size: "md", "C" }
-                        }
-                    }
-                }
-
-                // 6. Toggles
-                Section { id: "toggles", title: "Toggles",
-                    div { class: "space-y-3",
-                        Toggle { label: "Notifications", checked: true }
-                        Toggle { label: "Dark mode", checked: true }
-                        Toggle { label: "Auto-save", checked: false }
-                    }
-                }
-
-                // 7. Progress
+                // Progress
                 Section { id: "progress", title: "Progress",
-                    div { class: "space-y-3",
-                        Progress { value: 25, label: "Loading..." }
-                        Progress { value: 60, variant: "success" }
-                        Progress { value: 90, variant: "warning" }
+                    ProgressDemo {}
+                }
+
+                // Slider
+                Section { id: "slider", title: "Slider",
+                    SliderDemo {}
+                }
+
+                // Toggle
+                Section { id: "toggle", title: "Toggle",
+                    ToggleDemo {}
+                }
+
+                // Toggle Group
+                Section { id: "toggle-group", title: "Toggle Group",
+                    ToggleGroupDemo {}
+                }
+
+                // Tabs (full width)
+                div { class: "col-span-2",
+                    Section { id: "tabs", title: "Tabs",
+                        TabsDemo {}
                     }
                 }
 
-                // 8. Alerts
-                Section { id: "alerts", title: "Alerts",
-                    div { class: "space-y-2",
-                        Alert { variant: "info", "New version available!" }
-                        Alert { variant: "success", "Changes saved." }
-                        Alert { variant: "warning", "Check your settings." }
+                // Accordion (full width)
+                div { class: "col-span-2",
+                    Section { id: "accordion", title: "Accordion",
+                        AccordionDemo {}
                     }
                 }
+            }
 
-                // 9. Stats
-                Section { id: "stats", title: "Stats",
-                    div { class: "flex gap-3",
-                        Stat { value: "2.4k", label: "Users", trend: "+12%" }
-                        Stat { value: "847", label: "Orders", trend: "+5%" }
-                        Stat { value: "99%", label: "Uptime" }
-                    }
-                }
+            // Separator
+            div { class: "max-w-4xl mx-auto my-6",
+                Separator { class: "separator" }
+            }
 
-                // 10. Tags
-                Section { id: "tags", title: "Tags",
-                    div { class: "flex flex-wrap gap-2",
-                        Tag { "Rust" }
-                        Tag { "Dioxus" }
-                        Tag { "Desktop" }
-                        Tag { closable: true, "Removable" }
-                        Tag { variant: "outline", "Outline" }
+            // Terminal section (full width)
+            section { id: "terminal", class: "bg-slate-800 rounded-xl p-5 max-w-4xl mx-auto",
+                h2 { class: "text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wide", "Terminal" }
+                div { class: "rounded-lg overflow-hidden",
+                    Terminal {
+                        command: "/bin/bash",
+                        args: vec!["--login".to_string()],
+                        rows: 12,
+                        cols: 100,
+                        theme: Theme::zinc(),
+                        class: "rounded-lg",
                     }
                 }
             }
@@ -169,7 +146,211 @@ fn app() -> Element {
     }
 }
 
-// ============ COMPONENTS ============
+// ============ DEMO COMPONENTS ============
+
+#[component]
+fn SwitchDemo() -> Element {
+    let mut checked1 = use_signal(|| false);
+    let mut checked2 = use_signal(|| true);
+
+    rsx! {
+        div { class: "space-y-4",
+            div { class: "flex items-center justify-between",
+                span { class: "text-sm", "Notifications" }
+                Switch {
+                    checked: checked1(),
+                    on_checked_change: move |v| checked1.set(v),
+                    class: "switch",
+                    SwitchThumb { class: "switch-thumb" }
+                }
+            }
+            div { class: "flex items-center justify-between",
+                span { class: "text-sm", "Dark mode" }
+                Switch {
+                    checked: checked2(),
+                    on_checked_change: move |v| checked2.set(v),
+                    class: "switch",
+                    SwitchThumb { class: "switch-thumb" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn CheckboxDemo() -> Element {
+    rsx! {
+        div { class: "space-y-3",
+            label { class: "flex items-center gap-3 cursor-pointer",
+                Checkbox {
+                    class: "checkbox",
+                    CheckboxIndicator { class: "checkbox-indicator", "✓" }
+                }
+                span { class: "text-sm", "Accept terms of service" }
+            }
+            label { class: "flex items-center gap-3 cursor-pointer",
+                Checkbox {
+                    class: "checkbox",
+                    default_checked: dioxus_primitives::checkbox::CheckboxState::Checked,
+                    CheckboxIndicator { class: "checkbox-indicator", "✓" }
+                }
+                span { class: "text-sm", "Subscribe to newsletter" }
+            }
+        }
+    }
+}
+
+#[component]
+fn ProgressDemo() -> Element {
+    let mut value = use_signal(|| 65.0_f64);
+
+    // Animate progress
+    use_effect(move || {
+        spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                value.with_mut(|v| {
+                    *v += 0.5;
+                    if *v > 100.0 {
+                        *v = 0.0;
+                    }
+                });
+            }
+        });
+    });
+
+    let display_value = value().round() as i32;
+
+    rsx! {
+        div { class: "space-y-4",
+            div {
+                p { class: "text-xs text-slate-400 mb-2", "Downloading... {display_value}%" }
+                Progress {
+                    value: value(),
+                    class: "progress",
+                    ProgressIndicator { class: "progress-indicator" }
+                }
+            }
+            div {
+                p { class: "text-xs text-slate-400 mb-2", "Static (75%)" }
+                Progress {
+                    value: 75.0_f64,
+                    class: "progress",
+                    ProgressIndicator { class: "progress-indicator" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn SliderDemo() -> Element {
+    let mut value = use_signal(|| None::<dioxus_primitives::slider::SliderValue>);
+
+    rsx! {
+        div { class: "space-y-4",
+            Slider {
+                value: value(),
+                default_value: dioxus_primitives::slider::SliderValue::Single(50.0),
+                on_value_change: move |v| value.set(Some(v)),
+                class: "slider",
+                SliderTrack { class: "slider-track",
+                    SliderRange { class: "slider-range" }
+                    SliderThumb { class: "slider-thumb" }
+                }
+            }
+            p { class: "text-xs text-slate-400 text-center",
+                "Value: {value().map(|v| v.to_string()).unwrap_or(\"50\".into())}"
+            }
+        }
+    }
+}
+
+#[component]
+fn ToggleDemo() -> Element {
+    let mut pressed = use_signal(|| false);
+
+    rsx! {
+        div { class: "flex items-center gap-4",
+            Toggle {
+                pressed: pressed(),
+                on_pressed_change: move |v| pressed.set(v),
+                class: "toggle-single",
+                "Bold"
+            }
+            p { class: "text-xs text-slate-400",
+                if pressed() { "On" } else { "Off" }
+            }
+        }
+    }
+}
+
+#[component]
+fn ToggleGroupDemo() -> Element {
+    rsx! {
+        div { class: "space-y-4",
+            ToggleGroup {
+                horizontal: true,
+                class: "toggle-group",
+                ToggleItem { index: 0usize, class: "toggle-item", "Left" }
+                ToggleItem { index: 1usize, class: "toggle-item", "Center" }
+                ToggleItem { index: 2usize, class: "toggle-item", "Right" }
+            }
+        }
+    }
+}
+
+#[component]
+fn TabsDemo() -> Element {
+    rsx! {
+        Tabs {
+            default_value: "tab1",
+            class: "tabs",
+            TabList { class: "tab-list",
+                TabTrigger { value: "tab1", index: 0usize, class: "tab-trigger", "Account" }
+                TabTrigger { value: "tab2", index: 1usize, class: "tab-trigger", "Settings" }
+                TabTrigger { value: "tab3", index: 2usize, class: "tab-trigger", "Billing" }
+            }
+            TabContent { value: "tab1", index: 0usize, class: "tab-content",
+                p { "Manage your account settings and preferences." }
+            }
+            TabContent { value: "tab2", index: 1usize, class: "tab-content",
+                p { "Configure application settings and notifications." }
+            }
+            TabContent { value: "tab3", index: 2usize, class: "tab-content",
+                p { "View billing history and manage payment methods." }
+            }
+        }
+    }
+}
+
+#[component]
+fn AccordionDemo() -> Element {
+    rsx! {
+        Accordion { class: "accordion",
+            AccordionItem { index: 0, class: "accordion-item",
+                AccordionTrigger { class: "accordion-trigger", "What is Dioxus?" }
+                AccordionContent { class: "accordion-content",
+                    p { "Dioxus is a Rust framework for building cross-platform user interfaces." }
+                }
+            }
+            AccordionItem { index: 1, class: "accordion-item",
+                AccordionTrigger { class: "accordion-trigger", "What are primitives?" }
+                AccordionContent { class: "accordion-content",
+                    p { "Primitives are unstyled, accessible UI components that you can customize." }
+                }
+            }
+            AccordionItem { index: 2, class: "accordion-item",
+                AccordionTrigger { class: "accordion-trigger", "How do I style them?" }
+                AccordionContent { class: "accordion-content",
+                    p { "Use CSS with data-* attribute selectors or add your own classes." }
+                }
+            }
+        }
+    }
+}
+
+// ============ LAYOUT COMPONENTS ============
 
 #[component]
 fn Section(id: &'static str, title: &'static str, children: Element) -> Element {
@@ -181,149 +362,223 @@ fn Section(id: &'static str, title: &'static str, children: Element) -> Element 
     }
 }
 
-#[component]
-fn Button(variant: Option<&'static str>, children: Element) -> Element {
-    let class = match variant.unwrap_or("primary") {
-        "primary" => "px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition",
-        "secondary" => "px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg font-medium transition",
-        "outline" => "px-4 py-2 border border-slate-500 hover:bg-slate-700 rounded-lg font-medium transition",
-        "ghost" => "px-4 py-2 hover:bg-slate-700 rounded-lg font-medium transition",
-        "danger" => "px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition",
-        _ => "px-4 py-2 bg-blue-600 rounded-lg font-medium",
-    };
-    rsx! { button { class: class, {children} } }
+// ============ STYLES ============
+
+const PRIMITIVE_STYLES: &str = r#"
+/* Switch */
+.switch {
+    width: 44px;
+    height: 24px;
+    background: #475569;
+    border-radius: 9999px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: none;
+}
+.switch[data-state="checked"] {
+    background: #3b82f6;
+}
+.switch-thumb {
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 9999px;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+}
+.switch[data-state="checked"] .switch-thumb {
+    transform: translateX(20px);
 }
 
-#[component]
-fn Input(placeholder: &'static str, icon: Option<&'static str>, disabled: Option<bool>) -> Element {
-    let disabled = disabled.unwrap_or(false);
-    let base = "w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 transition";
-    let class = if disabled { format!("{} opacity-50 cursor-not-allowed", base) } else { base.to_string() };
-
-    rsx! {
-        div { class: "relative",
-            if let Some(ico) = icon {
-                span { class: "absolute left-3 top-2.5 text-slate-400", "{ico}" }
-                input { class: "{class} pl-10", placeholder: placeholder, disabled: disabled }
-            } else {
-                input { class: class, placeholder: placeholder, disabled: disabled }
-            }
-        }
-    }
+/* Checkbox */
+.checkbox {
+    width: 20px;
+    height: 20px;
+    background: #475569;
+    border: 2px solid #64748b;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.checkbox[data-state="checked"] {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+.checkbox-indicator {
+    color: white;
+    font-size: 12px;
 }
 
-#[component]
-fn Card(title: &'static str, featured: Option<bool>, children: Element) -> Element {
-    let border = if featured.unwrap_or(false) { "border-blue-500" } else { "border-slate-700" };
-    rsx! {
-        div { class: "bg-slate-700 border {border} rounded-lg p-4 flex-1",
-            h3 { class: "font-semibold mb-2", "{title}" }
-            p { class: "text-slate-400 text-sm", {children} }
-        }
-    }
+/* Progress */
+.progress {
+    height: 8px;
+    background: #334155;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+.progress-indicator {
+    height: 100%;
+    background: #3b82f6;
+    width: var(--progress-value);
+    transition: width 0.1s;
 }
 
-#[component]
-fn Badge(variant: Option<&'static str>, children: Element) -> Element {
-    let class = match variant.unwrap_or("default") {
-        "success" => "px-2.5 py-0.5 bg-green-600/20 text-green-400 rounded-full text-xs font-medium",
-        "warning" => "px-2.5 py-0.5 bg-yellow-600/20 text-yellow-400 rounded-full text-xs font-medium",
-        "error" => "px-2.5 py-0.5 bg-red-600/20 text-red-400 rounded-full text-xs font-medium",
-        "info" => "px-2.5 py-0.5 bg-blue-600/20 text-blue-400 rounded-full text-xs font-medium",
-        _ => "px-2.5 py-0.5 bg-slate-600 text-slate-300 rounded-full text-xs font-medium",
-    };
-    rsx! { span { class: class, {children} } }
+/* Slider */
+.slider {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 20px;
+}
+.slider-track {
+    position: relative;
+    height: 6px;
+    width: 100%;
+    background: #334155;
+    border-radius: 9999px;
+}
+.slider-range {
+    position: absolute;
+    height: 100%;
+    background: #3b82f6;
+    border-radius: 9999px;
+}
+.slider-thumb {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 9999px;
+    transform: translateX(-50%);
+    cursor: grab;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.slider-thumb:active {
+    cursor: grabbing;
+}
+.slider-thumb:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
 }
 
-#[component]
-fn Avatar(size: Option<&'static str>, children: Element) -> Element {
-    let class = match size.unwrap_or("md") {
-        "sm" => "w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-sm",
-        "lg" => "w-14 h-14 rounded-full bg-slate-600 flex items-center justify-center text-2xl",
-        _ => "w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-lg",
-    };
-    rsx! { div { class: class, {children} } }
+/* Toggle (single) */
+.toggle-single {
+    padding: 8px 16px;
+    background: #475569;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.toggle-single[data-state="on"] {
+    background: #3b82f6;
 }
 
-#[component]
-fn AvatarGroup(children: Element) -> Element {
-    rsx! { div { class: "flex -space-x-3", {children} } }
+/* Toggle Group */
+.toggle-group {
+    display: flex;
+    background: #334155;
+    border-radius: 8px;
+    padding: 4px;
+}
+.toggle-item {
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.toggle-item[data-state="on"] {
+    background: #3b82f6;
+    color: white;
+}
+.toggle-item:hover:not([data-state="on"]) {
+    color: white;
 }
 
-#[component]
-fn Toggle(label: &'static str, checked: bool) -> Element {
-    let bg = if checked { "bg-blue-600" } else { "bg-slate-600" };
-    let pos = if checked { "translate-x-5" } else { "translate-x-0" };
-    rsx! {
-        label { class: "flex items-center justify-between cursor-pointer",
-            span { class: "text-sm", "{label}" }
-            div { class: "w-11 h-6 {bg} rounded-full relative transition",
-                div { class: "w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition transform {pos}" }
-            }
-        }
-    }
+/* Tabs */
+.tabs {
+    width: 100%;
+}
+.tab-list {
+    display: flex;
+    border-bottom: 1px solid #334155;
+    margin-bottom: 16px;
+}
+.tab-trigger {
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.2s;
+}
+.tab-trigger[data-state="active"] {
+    color: white;
+    border-bottom-color: #3b82f6;
+}
+.tab-trigger:hover:not([data-state="active"]) {
+    color: #cbd5e1;
+}
+.tab-content {
+    color: #94a3b8;
+}
+.tab-content[data-state="inactive"] {
+    display: none;
 }
 
-#[component]
-fn Progress(value: u8, label: Option<&'static str>, variant: Option<&'static str>) -> Element {
-    let color = match variant.unwrap_or("default") {
-        "success" => "bg-green-500",
-        "warning" => "bg-yellow-500",
-        _ => "bg-blue-500",
-    };
-    rsx! {
-        div {
-            if let Some(lbl) = label {
-                p { class: "text-xs text-slate-400 mb-1", "{lbl}" }
-            }
-            div { class: "h-2 bg-slate-700 rounded-full overflow-hidden",
-                div { class: "h-full {color} transition-all", style: "width: {value}%" }
-            }
-        }
-    }
+/* Accordion */
+.accordion {
+    width: 100%;
+}
+.accordion-item {
+    border-bottom: 1px solid #334155;
+}
+.accordion-trigger {
+    width: 100%;
+    padding: 16px 0;
+    background: transparent;
+    border: none;
+    color: white;
+    text-align: left;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.accordion-trigger::after {
+    content: "+";
+    color: #64748b;
+    font-size: 20px;
+}
+.accordion-item[data-open="true"] .accordion-trigger::after {
+    content: "−";
+}
+.accordion-content {
+    overflow: hidden;
+    color: #94a3b8;
+    font-size: 14px;
+    padding-bottom: 16px;
 }
 
-#[component]
-fn Alert(variant: &'static str, children: Element) -> Element {
-    let (bg, border, icon) = match variant {
-        "success" => ("bg-green-900/30", "border-green-700", "✓"),
-        "warning" => ("bg-yellow-900/30", "border-yellow-700", "⚠"),
-        _ => ("bg-blue-900/30", "border-blue-700", "ℹ"),
-    };
-    rsx! {
-        div { class: "{bg} border {border} rounded-lg px-4 py-2 flex items-center gap-2 text-sm",
-            span { "{icon}" }
-            {children}
-        }
-    }
+/* Separator */
+.separator {
+    height: 1px;
+    background: #334155;
+    width: 100%;
 }
-
-#[component]
-fn Stat(value: &'static str, label: &'static str, trend: Option<&'static str>) -> Element {
-    rsx! {
-        div { class: "bg-slate-700 rounded-lg p-3 text-center flex-1",
-            p { class: "text-xl font-bold", "{value}" }
-            p { class: "text-xs text-slate-400", "{label}" }
-            if let Some(t) = trend {
-                p { class: "text-xs text-green-400 mt-1", "{t}" }
-            }
-        }
-    }
-}
-
-#[component]
-fn Tag(variant: Option<&'static str>, closable: Option<bool>, children: Element) -> Element {
-    let base = if variant == Some("outline") {
-        "inline-flex items-center gap-1 px-3 py-1 border border-slate-500 rounded-full text-sm"
-    } else {
-        "inline-flex items-center gap-1 px-3 py-1 bg-slate-700 rounded-full text-sm"
-    };
-    rsx! {
-        span { class: base,
-            {children}
-            if closable.unwrap_or(false) {
-                span { class: "text-slate-400 hover:text-white cursor-pointer", "×" }
-            }
-        }
-    }
-}
+"#;
