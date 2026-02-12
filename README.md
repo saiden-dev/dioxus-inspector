@@ -1,10 +1,19 @@
-# dioxus-inspector
+<p align="center">
+  <img src="logo.png" alt="dioxus-inspector" width="120" />
+</p>
 
-[![Crates.io](https://img.shields.io/crates/v/dioxus-inspector.svg)](https://crates.io/crates/dioxus-inspector)
-[![Documentation](https://docs.rs/dioxus-inspector/badge.svg)](https://docs.rs/dioxus-inspector)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<h1 align="center">dioxus-inspector</h1>
 
-HTTP bridge for inspecting and debugging Dioxus Desktop apps. Embed this in your app to enable MCP-based debugging from Claude Code.
+<p align="center">
+  <a href="https://crates.io/crates/dioxus-inspector"><img src="https://img.shields.io/crates/v/dioxus-inspector.svg" alt="Crates.io"></a>
+  <a href="https://docs.rs/dioxus-inspector"><img src="https://docs.rs/dioxus-inspector/badge.svg" alt="Documentation"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
+
+<p align="center">
+  HTTP bridge for inspecting and debugging Dioxus Desktop apps.<br/>
+  Embed this in your app to enable MCP-based debugging from Claude Code.
+</p>
 
 ## Quick Start
 

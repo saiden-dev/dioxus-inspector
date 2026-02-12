@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D4FF"/>
+      <stop offset="100%" style="stop-color:#00B4D8"/>
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF8547"/>
+      <stop offset="100%" style="stop-color:#FF6B35"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle (optional, can be removed for transparent) -->
+  <circle cx="100" cy="100" r="95" fill="white"/>
+
+  <!-- DNA Helix - Left strand (cyan) -->
+  <path d="M55 35 Q30 70 55 100 Q80 130 55 165"
+        stroke="url(#cyanGrad)" stroke-width="16" fill="none" stroke-linecap="round"/>
+
+  <!-- DNA Helix - Right strand (orange) -->
+  <path d="M95 35 Q120 70 95 100 Q70 130 95 165"
+        stroke="url(#orangeGrad)" stroke-width="16" fill="none" stroke-linecap="round"/>
+
+  <!-- DNA Bars -->
+  <rect x="52" y="52" width="46" height="8" rx="2" fill="#374151"/>
+  <rect x="52" y="82" width="46" height="8" rx="2" fill="#374151"/>
+  <rect x="52" y="112" width="46" height="8" rx="2" fill="#374151"/>
+  <rect x="52" y="142" width="46" height="8" rx="2" fill="#374151"/>
+
+  <!-- Magnifying Glass -->
+  <circle cx="145" cy="145" r="30" stroke="#374151" stroke-width="6" fill="none"/>
+  <circle cx="145" cy="145" r="22" fill="white" fill-opacity="0.9"/>
+  <line x1="167" y1="167" x2="188" y2="188" stroke="#374151" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Inspector crosshair inside magnifying glass -->
+  <circle cx="145" cy="145" r="8" stroke="#00B4D8" stroke-width="2" fill="none"/>
+  <line x1="145" y1="133" x2="145" y2="157" stroke="#FF6B35" stroke-width="2"/>
+  <line x1="133" y1="145" x2="157" y2="145" stroke="#FF6B35" stroke-width="2"/>
+</svg>
