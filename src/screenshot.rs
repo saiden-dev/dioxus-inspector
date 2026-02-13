@@ -8,7 +8,7 @@
 pub fn capture_screenshot(app_name: &str, output_path: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        let window_id = find_window_id(app_name);
+        let window_id = find_window_id(app_name)?;
         capture_window_to_png(window_id, output_path)
     }
 
@@ -20,7 +20,7 @@ pub fn capture_screenshot(app_name: &str, output_path: &str) -> Result<(), Strin
 }
 
 #[cfg(target_os = "macos")]
-fn find_window_id(app_name: &str) -> Option<u32> {
+fn find_window_id(app_name: &str) -> Result<u32, String> {
     use core_foundation::base::TCFType;
     use core_foundation::dictionary::CFDictionaryRef;
     use core_foundation::number::CFNumber;
@@ -33,7 +33,7 @@ fn find_window_id(app_name: &str) -> Option<u32> {
         unsafe { CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) };
 
     if windows.is_null() {
-        return None;
+        return Err("Failed to get window list".to_string());
     }
 
     let count = unsafe { core_foundation::array::CFArrayGetCount(windows) };
@@ -42,6 +42,8 @@ fn find_window_id(app_name: &str) -> Option<u32> {
         .chars()
         .filter(|c| c.is_alphanumeric())
         .collect();
+
+    let mut candidates: Vec<(String, String, u32)> = Vec::new();
 
     for i in 0..count {
         let dict = unsafe {
@@ -64,50 +66,88 @@ fn find_window_id(app_name: &str) -> Option<u32> {
         let owner: CFString = unsafe {
             TCFType::wrap_under_get_rule(owner_ptr as core_foundation::string::CFStringRef)
         };
-        let owner_clean: String = owner
-            .to_string()
-            .to_lowercase()
-            .chars()
-            .filter(|c| c.is_alphanumeric())
-            .collect();
+        let owner_str = owner.to_string();
 
-        if !owner_clean.contains(&app_clean) && !app_clean.contains(&owner_clean) {
-            continue;
-        }
-
+        // Get window name
         let name_key = CFString::new("kCGWindowName");
         let name_ptr = unsafe {
             core_foundation::dictionary::CFDictionaryGetValue(dict, name_key.as_CFTypeRef() as _)
         };
 
-        if name_ptr.is_null() {
-            continue;
-        }
-
-        let name: CFString = unsafe {
-            TCFType::wrap_under_get_rule(name_ptr as core_foundation::string::CFStringRef)
+        let name_str = if !name_ptr.is_null() {
+            let name: CFString = unsafe {
+                TCFType::wrap_under_get_rule(name_ptr as core_foundation::string::CFStringRef)
+            };
+            name.to_string()
+        } else {
+            String::new()
         };
 
-        if name.to_string().is_empty() {
-            continue;
-        }
-
+        // Get window ID
         let id_key = CFString::new("kCGWindowNumber");
         let id_ptr = unsafe {
             core_foundation::dictionary::CFDictionaryGetValue(dict, id_key.as_CFTypeRef() as _)
         };
 
-        if !id_ptr.is_null() {
-            let id_num: CFNumber = unsafe {
-                TCFType::wrap_under_get_rule(id_ptr as core_foundation::number::CFNumberRef)
-            };
-            if let Some(id) = id_num.to_i32() {
-                return Some(id as u32);
-            }
+        if id_ptr.is_null() {
+            continue;
         }
+
+        let id_num: CFNumber =
+            unsafe { TCFType::wrap_under_get_rule(id_ptr as core_foundation::number::CFNumberRef) };
+
+        let window_id = match id_num.to_i32() {
+            Some(id) => id as u32,
+            None => continue,
+        };
+
+        // Skip windows with empty names (background windows, menus, etc.)
+        if name_str.is_empty() {
+            continue;
+        }
+
+        let owner_clean: String = owner_str
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect();
+        let name_clean: String = name_str
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect();
+
+        // Check if app name matches owner OR window name
+        if owner_clean.contains(&app_clean)
+            || app_clean.contains(&owner_clean)
+            || name_clean.contains(&app_clean)
+            || app_clean.contains(&name_clean)
+        {
+            return Ok(window_id);
+        }
+
+        // Track as candidate for error message
+        candidates.push((owner_str, name_str, window_id));
     }
 
-    None
+    // No match found - provide helpful error with available windows
+    if candidates.is_empty() {
+        Err(format!(
+            "No windows found matching '{}'. No visible windows available.",
+            app_name
+        ))
+    } else {
+        let window_list: Vec<String> = candidates
+            .iter()
+            .take(5)
+            .map(|(owner, name, _)| format!("'{}' ({})", owner, name))
+            .collect();
+        Err(format!(
+            "No window found matching '{}'. Available: {}",
+            app_name,
+            window_list.join(", ")
+        ))
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -137,7 +177,7 @@ mod cg_ffi {
 }
 
 #[cfg(target_os = "macos")]
-fn capture_window_to_png(window_id: Option<u32>, output_path: &str) -> Result<(), String> {
+fn capture_window_to_png(window_id: u32, output_path: &str) -> Result<(), String> {
     use cg_ffi::*;
     use core_graphics::display::CGRectNull;
     use core_graphics::window::{
@@ -145,7 +185,7 @@ fn capture_window_to_png(window_id: Option<u32>, output_path: &str) -> Result<()
         kCGWindowListOptionIncludingWindow, CGWindowListCreateImage,
     };
 
-    let wid = window_id.ok_or("No window ID provided")?;
+    let wid = window_id;
 
     let image = unsafe {
         CGWindowListCreateImage(

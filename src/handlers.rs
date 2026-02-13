@@ -2,7 +2,12 @@
 
 use std::sync::Arc;
 
-use axum::{extract::State, http::StatusCode, response::Json};
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    response::Json,
+};
+use serde::Deserialize;
 use tokio::sync::oneshot;
 
 use crate::screenshot::capture_screenshot;
@@ -102,10 +107,33 @@ fn build_query_script(selector: &str, property: &str) -> String {
     }
 }
 
+/// Query parameters for DOM endpoint.
+#[derive(Debug, Default, Deserialize)]
+pub struct DomQuery {
+    pub depth: Option<u32>,
+    pub max_nodes: Option<u32>,
+    pub selector: Option<String>,
+}
+
 /// GET /dom - Get simplified DOM tree.
-pub async fn dom(State(state): State<Arc<BridgeState>>) -> Result<Json<EvalResponse>, StatusCode> {
-    let script = include_str!("scripts/dom.js");
-    let response = send_eval(&state, script.to_string()).await?;
+pub async fn dom(
+    State(state): State<Arc<BridgeState>>,
+    Query(query): Query<DomQuery>,
+) -> Result<Json<EvalResponse>, StatusCode> {
+    let depth = query.depth.unwrap_or(10);
+    let max_nodes = query.max_nodes.unwrap_or(500);
+    let selector_json = query
+        .selector
+        .as_ref()
+        .map(|s| serde_json::to_string(s).unwrap_or_else(|_| "null".to_string()))
+        .unwrap_or_else(|| "null".to_string());
+
+    let script = include_str!("scripts/dom.js")
+        .replace("{MAX_DEPTH}", &depth.to_string())
+        .replace("{MAX_NODES}", &max_nodes.to_string())
+        .replace("{SELECTOR}", &selector_json);
+
+    let response = send_eval(&state, script).await?;
     Ok(Json(response))
 }
 

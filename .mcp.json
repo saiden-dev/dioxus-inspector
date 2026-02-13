@@ -1,8 +1,14 @@
 {
   "mcpServers": {
-    "dioxus": {
+    "dioxus-dev": {
       "command": "cargo",
       "args": ["run", "--package", "dioxus-mcp", "--bin", "dioxus-mcp"],
+      "env": {
+        "DIOXUS_BRIDGE_URL": "http://127.0.0.1:9999"
+      }
+    },
+    "dioxus": {
+      "command": "/Users/chi/Projects/dioxus-inspector/target/release/dioxus-mcp",
       "env": {
         "DIOXUS_BRIDGE_URL": "http://127.0.0.1:9999"
       }

@@ -8,7 +8,15 @@ use crate::bridge::BridgeClient;
 pub async fn call_tool(bridge: &BridgeClient, name: &str, args: Value) -> Result<String> {
     match name {
         "status" => status(bridge).await,
-        "get_dom" => get_dom(bridge).await,
+        "get_dom" => {
+            let depth = args.get("depth").and_then(|v| v.as_u64()).map(|v| v as u32);
+            let max_nodes = args
+                .get("max_nodes")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32);
+            let selector = args.get("selector").and_then(|v| v.as_str());
+            get_dom(bridge, depth, max_nodes, selector).await
+        }
         "query_text" => {
             let selector = get_string_arg(&args, "selector")?;
             query_text(bridge, &selector).await
@@ -86,8 +94,13 @@ async fn status(bridge: &BridgeClient) -> Result<String> {
     }
 }
 
-async fn get_dom(bridge: &BridgeClient) -> Result<String> {
-    let resp = bridge.dom().await?;
+async fn get_dom(
+    bridge: &BridgeClient,
+    depth: Option<u32>,
+    max_nodes: Option<u32>,
+    selector: Option<&str>,
+) -> Result<String> {
+    let resp = bridge.dom(depth, max_nodes, selector).await?;
     extract_json_pretty(resp)
 }
 
@@ -208,7 +221,10 @@ async fn dom_to_rsx(
     let html_content = match (selector, html) {
         (Some(sel), _) => {
             let resp = bridge.query(sel, Some("html")).await?;
-            extract_result(resp)?
+            let json_str = extract_result(resp)?;
+            // The result is JSON-encoded, so we need to unescape it
+            serde_json::from_str::<String>(&json_str)
+                .unwrap_or_else(|_| json_str.trim_matches('"').to_string())
         }
         (None, Some(h)) => h.to_string(),
         (None, None) => return Err(anyhow!("Either 'selector' or 'html' argument is required")),

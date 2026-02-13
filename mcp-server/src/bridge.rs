@@ -114,14 +114,28 @@ impl BridgeClient {
         Ok(resp)
     }
 
-    pub async fn dom(&self) -> Result<EvalResponse> {
-        let resp = self
-            .client
-            .get(format!("{}/dom", self.base_url))
-            .send()
-            .await?
-            .json()
-            .await?;
+    pub async fn dom(
+        &self,
+        depth: Option<u32>,
+        max_nodes: Option<u32>,
+        selector: Option<&str>,
+    ) -> Result<EvalResponse> {
+        let mut url = format!("{}/dom", self.base_url);
+        let mut params = vec![];
+        if let Some(d) = depth {
+            params.push(format!("depth={}", d));
+        }
+        if let Some(m) = max_nodes {
+            params.push(format!("max_nodes={}", m));
+        }
+        if let Some(s) = selector {
+            params.push(format!("selector={}", urlencoding::encode(s)));
+        }
+        if !params.is_empty() {
+            url = format!("{}?{}", url, params.join("&"));
+        }
+
+        let resp = self.client.get(&url).send().await?.json().await?;
         Ok(resp)
     }
 

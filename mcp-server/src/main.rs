@@ -89,7 +89,16 @@ fn tools_list() -> Value {
     json!({
         "tools": [
             tool_def("status", "Check if the Dioxus app is running", json!({})),
-            tool_def("get_dom", "Get simplified DOM tree", json!({})),
+            tool_def_optional(
+                "get_dom",
+                "Get simplified DOM tree (limited to prevent token overflow)",
+                json!({
+                    "depth": { "type": "number", "description": "Max depth to traverse (default: 10)" },
+                    "max_nodes": { "type": "number", "description": "Max nodes to return (default: 500)" },
+                    "selector": { "type": "string", "description": "CSS selector for root element (default: body)" }
+                }),
+                vec![]
+            ),
             tool_def("query_text", "Get element text by CSS selector", json!({
                 "selector": { "type": "string", "description": "CSS selector" }
             })),
