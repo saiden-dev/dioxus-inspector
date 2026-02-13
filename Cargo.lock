@@ -941,10 +941,12 @@ dependencies = [
  "axum",
  "core-foundation 0.10.1",
  "core-graphics",
+ "http-body-util",
  "image",
  "serde",
  "serde_json",
  "tokio",
+ "tower",
  "tracing",
 ]
 

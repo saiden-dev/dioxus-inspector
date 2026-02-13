@@ -169,6 +169,7 @@ pub async fn diagnose(
 }
 
 /// POST /screenshot - Capture window.
+#[cfg(not(tarpaulin_include))]
 pub async fn screenshot(
     State(state): State<Arc<BridgeState>>,
     body: Option<Json<ScreenshotRequest>>,
@@ -249,9 +250,20 @@ async fn send_eval(state: &BridgeState, script: String) -> Result<EvalResponse, 
 mod tests {
     use super::*;
 
+    // format_uptime tests
+    #[test]
+    fn test_format_uptime_zero() {
+        assert_eq!(format_uptime(0), "0s");
+    }
+
     #[test]
     fn test_format_uptime_seconds() {
         assert_eq!(format_uptime(45), "45s");
+    }
+
+    #[test]
+    fn test_format_uptime_exactly_one_minute() {
+        assert_eq!(format_uptime(60), "1m 0s");
     }
 
     #[test]
@@ -260,10 +272,21 @@ mod tests {
     }
 
     #[test]
+    fn test_format_uptime_exactly_one_hour() {
+        assert_eq!(format_uptime(3600), "1h 0m");
+    }
+
+    #[test]
     fn test_format_uptime_hours() {
         assert_eq!(format_uptime(3665), "1h 1m");
     }
 
+    #[test]
+    fn test_format_uptime_many_hours() {
+        assert_eq!(format_uptime(86400), "24h 0m"); // 24 hours
+    }
+
+    // build_query_script tests
     #[test]
     fn test_build_query_script_text() {
         let script = build_query_script(".btn", "text");
@@ -278,6 +301,13 @@ mod tests {
     }
 
     #[test]
+    fn test_build_query_script_outer_html() {
+        let script = build_query_script("div", "outerHTML");
+        assert!(script.contains("outerHTML"));
+        assert!(script.contains("\"div\""));
+    }
+
+    #[test]
     fn test_build_query_script_value() {
         let script = build_query_script("input", "value");
         assert!(script.contains(".value"));
@@ -288,5 +318,475 @@ mod tests {
         let script = build_query_script("a", "href");
         assert!(script.contains("getAttribute"));
         assert!(script.contains("\"href\""));
+    }
+
+    #[test]
+    fn test_build_query_script_data_attribute() {
+        let script = build_query_script("[data-id]", "data-id");
+        assert!(script.contains("getAttribute"));
+        assert!(script.contains("\"data-id\""));
+    }
+
+    #[test]
+    fn test_build_query_script_escapes_selector() {
+        let script = build_query_script("div[data-name=\"test\"]", "text");
+        // Selector should be JSON-escaped
+        assert!(script.contains("\\\"test\\\""));
+    }
+
+    // DomQuery tests
+    #[test]
+    fn test_dom_query_default() {
+        let query = DomQuery::default();
+        assert!(query.depth.is_none());
+        assert!(query.max_nodes.is_none());
+        assert!(query.selector.is_none());
+    }
+
+    #[test]
+    fn test_dom_query_deserialize_empty() {
+        let json = "{}";
+        let query: DomQuery = serde_json::from_str(json).unwrap();
+        assert!(query.depth.is_none());
+        assert!(query.max_nodes.is_none());
+        assert!(query.selector.is_none());
+    }
+
+    #[test]
+    fn test_dom_query_deserialize_full() {
+        let json = r#"{"depth": 5, "max_nodes": 100, "selector": ".container"}"#;
+        let query: DomQuery = serde_json::from_str(json).unwrap();
+        assert_eq!(query.depth, Some(5));
+        assert_eq!(query.max_nodes, Some(100));
+        assert_eq!(query.selector, Some(".container".to_string()));
+    }
+
+    #[test]
+    fn test_dom_query_deserialize_partial() {
+        let json = r#"{"depth": 3}"#;
+        let query: DomQuery = serde_json::from_str(json).unwrap();
+        assert_eq!(query.depth, Some(3));
+        assert!(query.max_nodes.is_none());
+        assert!(query.selector.is_none());
+    }
+
+    // Handler integration tests
+    mod integration {
+        use super::*;
+        use axum::{body::Body, http::Request, routing::get, Router};
+        use http_body_util::BodyExt;
+        use tokio::sync::mpsc;
+        use tower::ServiceExt;
+
+        fn create_test_state() -> (Arc<BridgeState>, mpsc::Receiver<EvalCommand>) {
+            let (eval_tx, eval_rx) = mpsc::channel(32);
+            let state = Arc::new(BridgeState {
+                app_name: "test-app".to_string(),
+                eval_tx,
+                started_at: std::time::Instant::now(),
+                pid: 12345,
+            });
+            (state, eval_rx)
+        }
+
+        #[tokio::test]
+        async fn test_status_handler() {
+            let (state, _rx) = create_test_state();
+            let app = Router::new()
+                .route("/status", get(status))
+                .with_state(state);
+
+            let response = app
+                .oneshot(Request::get("/status").body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+
+            let body = response.into_body().collect().await.unwrap().to_bytes();
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+            assert_eq!(json["status"], "ok");
+            assert_eq!(json["app"], "test-app");
+            assert_eq!(json["pid"], 12345);
+            assert!(json["uptime_secs"].is_number());
+            assert!(json["uptime_human"].is_string());
+        }
+
+        #[tokio::test]
+        async fn test_eval_handler_success() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/eval", axum::routing::post(eval))
+                .with_state(state);
+
+            // Spawn responder
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    let _ = cmd.response_tx.send(EvalResponse::success("42"));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::post("/eval")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r#"{"script": "return 42"}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+
+            let body = response.into_body().collect().await.unwrap().to_bytes();
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+            assert_eq!(json["success"], true);
+            assert_eq!(json["result"], "42");
+        }
+
+        #[tokio::test]
+        async fn test_eval_handler_error() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/eval", axum::routing::post(eval))
+                .with_state(state);
+
+            // Spawn responder with error
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    let _ = cmd.response_tx.send(EvalResponse::error("Script failed"));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::post("/eval")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r#"{"script": "invalid"}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+
+            let body = response.into_body().collect().await.unwrap().to_bytes();
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+            assert_eq!(json["success"], false);
+            assert_eq!(json["error"], "Script failed");
+        }
+
+        #[tokio::test]
+        async fn test_query_handler() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/query", axum::routing::post(query))
+                .with_state(state);
+
+            // Spawn responder that validates the script
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    // Verify the script contains textContent (default property)
+                    assert!(cmd.script.contains("textContent"));
+                    assert!(cmd.script.contains(".btn"));
+                    let _ = cmd.response_tx.send(EvalResponse::success("Click me"));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::post("/query")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r#"{"selector": ".btn"}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+
+            let body = response.into_body().collect().await.unwrap().to_bytes();
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+            assert_eq!(json["success"], true);
+            assert_eq!(json["result"], "Click me");
+        }
+
+        #[tokio::test]
+        async fn test_query_handler_with_property() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/query", axum::routing::post(query))
+                .with_state(state);
+
+            // Spawn responder that validates the script
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    // Verify the script contains innerHTML
+                    assert!(cmd.script.contains("innerHTML"));
+                    let _ = cmd
+                        .response_tx
+                        .send(EvalResponse::success("<span>Content</span>"));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::post("/query")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r##"{"selector": "#main", "property": "html"}"##))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+
+            let body = response.into_body().collect().await.unwrap().to_bytes();
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+            assert_eq!(json["result"], "<span>Content</span>");
+        }
+
+        #[tokio::test]
+        async fn test_dom_handler() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new().route("/dom", get(dom)).with_state(state);
+
+            // Spawn responder
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    // Verify script has default values
+                    assert!(cmd.script.contains("MAX_DEPTH = 10"));
+                    assert!(cmd.script.contains("MAX_NODES = 500"));
+                    let _ = cmd
+                        .response_tx
+                        .send(EvalResponse::success(r#"{"tag":"body"}"#));
+                }
+            });
+
+            let response = app
+                .oneshot(Request::get("/dom").body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+        }
+
+        #[tokio::test]
+        async fn test_dom_handler_with_params() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new().route("/dom", get(dom)).with_state(state);
+
+            // Spawn responder
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    // Verify script has custom values
+                    assert!(cmd.script.contains("MAX_DEPTH = 5"));
+                    assert!(cmd.script.contains("MAX_NODES = 100"));
+                    assert!(cmd.script.contains("\".container\""));
+                    let _ = cmd
+                        .response_tx
+                        .send(EvalResponse::success(r#"{"tag":"div"}"#));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::get("/dom?depth=5&max_nodes=100&selector=.container")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+        }
+
+        #[tokio::test]
+        async fn test_inspect_handler() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/inspect", axum::routing::post(inspect))
+                .with_state(state);
+
+            // Spawn responder
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    assert!(cmd.script.contains(".modal"));
+                    let _ = cmd
+                        .response_tx
+                        .send(EvalResponse::success(r#"{"visible": true, "rect": {}}"#));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::post("/inspect")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r#"{"selector": ".modal"}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+        }
+
+        #[tokio::test]
+        async fn test_validate_classes_handler() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/validate-classes", axum::routing::post(validate_classes))
+                .with_state(state);
+
+            // Spawn responder
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    assert!(cmd.script.contains("flex"));
+                    assert!(cmd.script.contains("p-4"));
+                    let _ = cmd.response_tx.send(EvalResponse::success(
+                        r#"{"available": ["flex"], "missing": ["p-4"]}"#,
+                    ));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::post("/validate-classes")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r#"{"classes": ["flex", "p-4"]}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+        }
+
+        #[tokio::test]
+        async fn test_diagnose_handler() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/diagnose", get(diagnose))
+                .with_state(state);
+
+            // Spawn responder
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    // diagnose.js should be embedded
+                    assert!(!cmd.script.is_empty());
+                    let _ = cmd
+                        .response_tx
+                        .send(EvalResponse::success(r#"{"healthy": true}"#));
+                }
+            });
+
+            let response = app
+                .oneshot(Request::get("/diagnose").body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+        }
+
+        #[tokio::test]
+        async fn test_resize_handler_success() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/resize", axum::routing::post(resize))
+                .with_state(state);
+
+            // Spawn responder
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    assert!(cmd.script.contains("800x600"));
+                    let _ = cmd.response_tx.send(EvalResponse::success(
+                        "__DIOXUS_INSPECTOR_RESIZE__800x600__",
+                    ));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::post("/resize")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r#"{"width": 800, "height": 600}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+
+            let body = response.into_body().collect().await.unwrap().to_bytes();
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+            assert_eq!(json["success"], true);
+            assert_eq!(json["width"], 800);
+            assert_eq!(json["height"], 600);
+        }
+
+        #[tokio::test]
+        async fn test_resize_handler_error() {
+            let (state, mut rx) = create_test_state();
+            let app = Router::new()
+                .route("/resize", axum::routing::post(resize))
+                .with_state(state);
+
+            // Spawn responder with error
+            tokio::spawn(async move {
+                if let Some(cmd) = rx.recv().await {
+                    let _ = cmd
+                        .response_tx
+                        .send(EvalResponse::error("Window not found"));
+                }
+            });
+
+            let response = app
+                .oneshot(
+                    Request::post("/resize")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r#"{"width": 800, "height": 600}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), 200);
+
+            let body = response.into_body().collect().await.unwrap().to_bytes();
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+            assert_eq!(json["success"], false);
+            assert_eq!(json["error"], "Window not found");
+        }
+
+        #[tokio::test]
+        async fn test_eval_handler_channel_closed() {
+            let (state, rx) = create_test_state();
+            // Drop receiver to simulate closed channel
+            drop(rx);
+
+            let app = Router::new()
+                .route("/eval", axum::routing::post(eval))
+                .with_state(state);
+
+            let response = app
+                .oneshot(
+                    Request::post("/eval")
+                        .header("content-type", "application/json")
+                        .body(Body::from(r#"{"script": "return 42"}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            // Should return 503 Service Unavailable when channel is closed
+            assert_eq!(response.status(), 503);
+        }
     }
 }

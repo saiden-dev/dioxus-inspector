@@ -20,6 +20,7 @@ pub fn capture_screenshot(app_name: &str, output_path: &str) -> Result<(), Strin
 }
 
 #[cfg(target_os = "macos")]
+#[cfg(not(tarpaulin_include))]
 fn find_window_id(app_name: &str) -> Result<u32, String> {
     use core_foundation::base::TCFType;
     use core_foundation::dictionary::CFDictionaryRef;
@@ -177,6 +178,7 @@ mod cg_ffi {
 }
 
 #[cfg(target_os = "macos")]
+#[cfg(not(tarpaulin_include))]
 fn capture_window_to_png(window_id: u32, output_path: &str) -> Result<(), String> {
     use cg_ffi::*;
     use core_graphics::display::CGRectNull;

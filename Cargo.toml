@@ -32,6 +32,8 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

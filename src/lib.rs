@@ -112,6 +112,7 @@ pub struct BridgeState {
 ///     }
 /// });
 /// ```
+#[cfg(not(tarpaulin_include))]
 pub fn start_bridge(port: u16, app_name: impl Into<String>) -> mpsc::Receiver<EvalCommand> {
     let (eval_tx, eval_rx) = mpsc::channel::<EvalCommand>(32);
 
