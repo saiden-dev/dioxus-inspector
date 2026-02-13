@@ -936,7 +936,7 @@ dependencies = [
 
 [[package]]
 name = "dioxus-inspector"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "axum",
  "core-foundation 0.10.1",
