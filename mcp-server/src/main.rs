@@ -119,7 +119,25 @@ fn tools_list() -> Value {
             tool_def("resize", "Resize the window", json!({
                 "width": { "type": "number", "description": "Window width in pixels" },
                 "height": { "type": "number", "description": "Window height in pixels" }
-            }))
+            })),
+            tool_def_optional(
+                "dom_to_rsx",
+                "Convert DOM HTML to Dioxus RSX code using dx translate",
+                json!({
+                    "selector": { "type": "string", "description": "CSS selector to get HTML from" },
+                    "html": { "type": "string", "description": "Raw HTML string to convert" }
+                }),
+                vec![]  // Neither required - one or the other
+            ),
+            tool_def("doctor", "Run dx doctor to diagnose Dioxus installation and tools", json!({})),
+            tool_def_optional(
+                "check",
+                "Run dx check to find RSX and component issues in the project",
+                json!({
+                    "path": { "type": "string", "description": "Project path (defaults to current directory)" }
+                }),
+                vec![]
+            )
         ]
     })
 }
@@ -130,6 +148,23 @@ fn tool_def(name: &str, description: &str, properties: Value) -> Value {
         .map(|obj| obj.keys().map(|k| k.as_str()).collect())
         .unwrap_or_default();
 
+    json!({
+        "name": name,
+        "description": description,
+        "inputSchema": {
+            "type": "object",
+            "properties": properties,
+            "required": required
+        }
+    })
+}
+
+fn tool_def_optional(
+    name: &str,
+    description: &str,
+    properties: Value,
+    required: Vec<&str>,
+) -> Value {
     json!({
         "name": name,
         "description": description,
@@ -233,6 +268,15 @@ mod tests {
         let list = tools_list();
         let tools = list["tools"].as_array().unwrap();
         assert!(tools.iter().any(|t| t["name"] == "status"));
+    }
+
+    #[test]
+    fn test_tools_list_contains_dx_tools() {
+        let list = tools_list();
+        let tools = list["tools"].as_array().unwrap();
+        assert!(tools.iter().any(|t| t["name"] == "dom_to_rsx"));
+        assert!(tools.iter().any(|t| t["name"] == "doctor"));
+        assert!(tools.iter().any(|t| t["name"] == "check"));
     }
 
     #[test]

@@ -48,6 +48,16 @@ pub async fn call_tool(bridge: &BridgeClient, name: &str, args: Value) -> Result
             let height = get_u32_arg(&args, "height")?;
             resize(bridge, width, height).await
         }
+        "dom_to_rsx" => {
+            let selector = args.get("selector").and_then(|v| v.as_str());
+            let html = args.get("html").and_then(|v| v.as_str());
+            dom_to_rsx(bridge, selector, html).await
+        }
+        "doctor" => doctor().await,
+        "check" => {
+            let path = args.get("path").and_then(|v| v.as_str());
+            check(path).await
+        }
         _ => Err(anyhow!("Unknown tool: {}", name)),
     }
 }
@@ -141,7 +151,16 @@ async fn type_text(bridge: &BridgeClient, selector: &str, text: &str) -> Result<
 }
 
 async fn eval(bridge: &BridgeClient, script: &str) -> Result<String> {
-    let resp = bridge.eval(script).await?;
+    // Wrap user script in IIFE with eval() to capture expression results
+    // This allows both simple expressions (1+1) and complex scripts to work
+    let wrapped = format!(
+        r#"return (() => {{
+            const __result__ = eval({});
+            return __result__;
+        }})()"#,
+        serde_json::to_string(script)?
+    );
+    let resp = bridge.eval(&wrapped).await?;
     extract_result(resp)
 }
 
@@ -158,9 +177,14 @@ async fn diagnose(bridge: &BridgeClient) -> Result<String> {
 async fn screenshot(bridge: &BridgeClient, path: Option<&str>) -> Result<String> {
     let resp = bridge.screenshot(path).await?;
     if resp.success {
-        Ok(format!("Screenshot saved: {}", resp.path.unwrap_or_default()))
+        Ok(format!(
+            "Screenshot saved: {}",
+            resp.path.unwrap_or_default()
+        ))
     } else {
-        Err(anyhow!(resp.error.unwrap_or_else(|| "Unknown error".to_string())))
+        Err(anyhow!(resp
+            .error
+            .unwrap_or_else(|| "Unknown error".to_string())))
     }
 }
 
@@ -169,7 +193,98 @@ async fn resize(bridge: &BridgeClient, width: u32, height: u32) -> Result<String
     if resp.success {
         Ok(format!("Window resized to {}x{}", resp.width, resp.height))
     } else {
-        Err(anyhow!(resp.error.unwrap_or_else(|| "Unknown error".to_string())))
+        Err(anyhow!(resp
+            .error
+            .unwrap_or_else(|| "Unknown error".to_string())))
+    }
+}
+
+async fn dom_to_rsx(
+    bridge: &BridgeClient,
+    selector: Option<&str>,
+    html: Option<&str>,
+) -> Result<String> {
+    // Get HTML from selector or use provided HTML
+    let html_content = match (selector, html) {
+        (Some(sel), _) => {
+            let resp = bridge.query(sel, Some("html")).await?;
+            extract_result(resp)?
+        }
+        (None, Some(h)) => h.to_string(),
+        (None, None) => return Err(anyhow!("Either 'selector' or 'html' argument is required")),
+    };
+
+    // Shell out to dx translate
+    translate_html_to_rsx(&html_content).await
+}
+
+async fn translate_html_to_rsx(html: &str) -> Result<String> {
+    use std::process::Stdio;
+    use tokio::process::Command;
+
+    let output = Command::new("dx")
+        .args(["translate", "--raw", html])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .await
+        .map_err(|e| anyhow!("Failed to run 'dx translate': {}. Is dx CLI installed?", e))?;
+
+    if output.status.success() {
+        let rsx = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if rsx.is_empty() {
+            Ok("// No RSX generated (empty input?)".to_string())
+        } else {
+            Ok(rsx)
+        }
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(anyhow!("dx translate failed: {}", stderr.trim()))
+    }
+}
+
+async fn doctor() -> Result<String> {
+    run_dx_command(&["doctor"]).await
+}
+
+async fn check(path: Option<&str>) -> Result<String> {
+    let mut args = vec!["check"];
+    if let Some(p) = path {
+        args.push("-p");
+        args.push(p);
+    }
+    run_dx_command(&args).await
+}
+
+async fn run_dx_command(args: &[&str]) -> Result<String> {
+    use std::process::Stdio;
+    use tokio::process::Command;
+
+    let output = Command::new("dx")
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .await
+        .map_err(|e| {
+            anyhow!(
+                "Failed to run 'dx {}': {}. Is dx CLI installed?",
+                args[0],
+                e
+            )
+        })?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Combine stdout and stderr - dx outputs diagnostics to both
+    let combined = format!("{}{}", stdout, stderr);
+    let trimmed = combined.trim();
+
+    if trimmed.is_empty() {
+        Ok(format!("dx {} completed (no output)", args[0]))
+    } else {
+        Ok(trimmed.to_string())
     }
 }
 
@@ -177,17 +292,18 @@ fn extract_result(resp: crate::bridge::EvalResponse) -> Result<String> {
     if resp.success {
         Ok(resp.result.unwrap_or_else(|| "null".to_string()))
     } else {
-        Err(anyhow!(resp.error.unwrap_or_else(|| "Unknown error".to_string())))
+        Err(anyhow!(resp
+            .error
+            .unwrap_or_else(|| "Unknown error".to_string())))
     }
 }
 
 /// Extract and pretty-print JSON from double-encoded response
 fn extract_json_pretty(resp: crate::bridge::EvalResponse) -> Result<String> {
     let json_str = extract_result(resp)?;
-    let inner: String = serde_json::from_str(&json_str)
-        .map_err(|e| anyhow!("Failed to unescape: {}", e))?;
-    let parsed: Value = serde_json::from_str(&inner)
-        .map_err(|e| anyhow!("Invalid JSON: {}", e))?;
+    let inner: String =
+        serde_json::from_str(&json_str).map_err(|e| anyhow!("Failed to unescape: {}", e))?;
+    let parsed: Value = serde_json::from_str(&inner).map_err(|e| anyhow!("Invalid JSON: {}", e))?;
     Ok(serde_json::to_string_pretty(&parsed)?)
 }
 
@@ -244,5 +360,12 @@ mod tests {
         let args = json!({});
         let result = get_u32_arg(&args, "width");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_optional_string_arg() {
+        let args = json!({"selector": ".btn"});
+        assert_eq!(args.get("selector").and_then(|v| v.as_str()), Some(".btn"));
+        assert_eq!(args.get("html").and_then(|v| v.as_str()), None);
     }
 }
