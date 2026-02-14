@@ -8,7 +8,7 @@
 //! {
 //!   "mcpServers": {
 //!     "dioxus": {
-//!       "command": "dioxus-mcp",
+//!       "command": "dioxus-inspector",
 //!       "env": { "DIOXUS_BRIDGE_URL": "http://127.0.0.1:9999" }
 //!     }
 //!   }

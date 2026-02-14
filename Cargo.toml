@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "mcp-server", "playground"]
+members = [".", "playground"]
 
 [package]
 name = "dioxus-inspector"
@@ -11,6 +11,15 @@ license = "MIT"
 repository = "https://github.com/saiden-dev/dioxus-inspector"
 keywords = ["dioxus", "debugging", "inspector", "mcp"]
 categories = ["development-tools::debugging", "gui"]
+
+[[bin]]
+name = "dioxus-inspector"
+path = "mcp-server/src/main.rs"
+required-features = ["mcp"]
+
+[features]
+default = []
+mcp = ["dep:reqwest", "dep:anyhow", "dep:tracing-subscriber", "dep:urlencoding", "tokio/full"]
 
 [dependencies]
 # Async HTTP server
@@ -23,6 +32,12 @@ serde_json = "1"
 
 # Logging
 tracing = "0.1"
+
+# MCP server (optional)
+reqwest = { version = "0.12", features = ["json"], optional = true }
+anyhow = { version = "1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+urlencoding = { version = "2", optional = true }
 
 # macOS window capture
 [target.'cfg(target_os = "macos")'.dependencies]

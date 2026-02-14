@@ -938,16 +938,20 @@ dependencies = [
 name = "dioxus-inspector"
 version = "0.1.2"
 dependencies = [
+ "anyhow",
  "axum",
  "core-foundation 0.10.1",
  "core-graphics",
  "http-body-util",
  "image",
+ "reqwest",
  "serde",
  "serde_json",
  "tokio",
  "tower",
  "tracing",
+ "tracing-subscriber",
+ "urlencoding",
 ]
 
 [[package]]
@@ -980,20 +984,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-wasm",
-]
-
-[[package]]
-name = "dioxus-mcp"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "urlencoding",
 ]
 
 [[package]]
