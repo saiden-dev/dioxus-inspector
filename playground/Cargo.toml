@@ -9,6 +9,7 @@ name = "playground"
 path = "src/main.rs"
 
 [dependencies]
+time = "0.3"
 dioxus = { version = "0.7", features = ["desktop"] }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", package = "dioxus-primitives" }
 dioxus-inspector = { path = ".." }
